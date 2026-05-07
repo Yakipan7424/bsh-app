@@ -111,7 +111,7 @@ export default function BshRetroApp() {
       `}</style>
 
       {/* ヘッダー：レトロな雑誌風 */}
-      <header className="sticky top-0 bg-[#F5EFE6] border-b-4 border-[#607D8B] px-6 py-4 flex justify-between items-center z-30">
+      <header className="sticky top-0 bg-[#F5EFE6] border-b-4 border-[#607D8B] px-5 py-3 flex justify-between items-center z-30">
         <h1 className="text-2xl font-bold text-[#607D8B] italic tracking-tighter">BSH Times 🐾</h1>
         <div className="flex gap-4">
           <Globe className="text-[#D4A373]" size={24} />
@@ -120,12 +120,12 @@ export default function BshRetroApp() {
       </header>
 
       {/* ナビゲーションタブ */}
-      <nav className="flex sticky top-[72px] z-20 bg-white border-b-2 border-[#607D8B]">
+      <nav className="flex sticky top-[64px] z-20 bg-white border-b-2 border-[#607D8B]">
         {['sns', 'threads', 'shop'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t)}
-            className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === t ? 'bg-[#607D8B] text-white' : 'text-[#607D8B] hover:bg-[#F5EFE6]'}`}
+            className={`flex-1 py-1.5 text-[11px] font-bold tracking-tight transition-all ${activeTab === t ? 'bg-[#607D8B] text-white' : 'text-[#607D8B] hover:bg-[#F5EFE6]'}`}
           >
             {t.toUpperCase()}
           </button>
@@ -133,20 +133,20 @@ export default function BshRetroApp() {
       </nav>
 
       {/* ストーリー */}
-      <section className="px-4 py-4 bg-[#FFF8EE] border-b-2 border-[#EADBC8]">
+      <section className="px-4 py-2 bg-[#FFF8EE] border-b-2 border-[#EADBC8]">
         <div className="flex gap-4 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {STORIES.map((story) => (
             <button
               key={story.id}
               onClick={() => handleStoryClick(story.id)}
-              className="flex-shrink-0 flex flex-col items-center gap-2 group"
+              className="flex-shrink-0 flex flex-col items-center pt-1 group"
               aria-label={`${story.name}のストーリー`}
             >
               <span
                 className={`p-[3px] rounded-full bg-gradient-to-tr from-[#F6B36A] via-[#E56B6F] to-[#8E7DBE] shadow-sm transition-all duration-300 ${activeStory === story.id ? 'shadow-[0_0_0_2px_rgba(250,249,246,0.95)]' : ''}`}
               >
                 <span
-                  className={`block w-16 h-16 rounded-full p-[2px] bg-[#FAF9F6] transition-transform duration-300 ${poppingStory === story.id ? 'animate-[storyPop_420ms_ease-out] scale-105' : 'group-hover:scale-105'}`}
+                  className={`block w-11 h-11 rounded-full p-[2px] bg-[#FAF9F6] transition-transform duration-300 ${poppingStory === story.id ? 'animate-[storyPop_420ms_ease-out] scale-105' : 'group-hover:scale-105'}`}
                 >
                   <img
                     src={story.image}
@@ -155,39 +155,36 @@ export default function BshRetroApp() {
                   />
                 </span>
               </span>
-              <span className={`text-xs font-bold transition-colors ${activeStory === story.id ? 'text-[#E56B6F]' : 'text-[#607D8B]'}`}>
-                {story.name}
-              </span>
             </button>
           ))}
         </div>
       </section>
 
-      <main className="p-5">
+      <main className="px-0 pt-3 pb-24">
         {/* SNS FEED */}
         {activeTab === 'sns' && feedPosts.map(post => (
-          <div key={post.id} className="bg-white border-3 border-[#4A4A4A] rounded-[30px] mb-8 shadow-[8px_8px_0px_0px_rgba(212,163,115,0.5)] overflow-hidden">
-            <div className="p-4 flex items-center gap-3 border-b-2 border-[#FAF9F6]">
+          <div key={post.id} className="bg-white border-y-2 border-[#4A4A4A] mb-5 shadow-[0_6px_0_0_rgba(212,163,115,0.35)] overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-3 border-b-2 border-[#FAF9F6]">
               <div className="w-10 h-10 rounded-full bg-[#D4A373] border-2 border-[#4A4A4A]" />
-              <span className="font-bold text-lg">{post.user}</span>
+              <span className="font-bold text-base">{post.user}</span>
             </div>
-            <img src={post.image} alt="cat" className="w-full border-b-2 border-[#4A4A4A]" />
-            <div className="p-4 bg-[#FFFDFB]">
-              <div className="flex gap-5 mb-3">
+            <img src={post.image} alt="cat" className="w-full h-[46vh] object-cover border-b-2 border-[#4A4A4A]" />
+            <div className="px-4 py-3 bg-[#FFFDFB]">
+              <div className="flex gap-4 mb-2.5">
                 <button
                   onClick={() => togglePostLike(post.id)}
                   className="transition-transform hover:scale-125 active:scale-95"
                   aria-label="Like post"
                 >
                   <Heart
-                    size={28}
+                    size={24}
                     className={`cursor-pointer transition-colors ${likedPosts[post.id] ? 'text-red-500 fill-red-500' : 'text-[#E56B6F]'}`}
                   />
                 </button>
-                <MessageCircle size={28} />
-                <Send size={28} />
+                <MessageCircle size={24} />
+                <Send size={24} />
               </div>
-              <p className="text-md leading-relaxed">
+              <p className="text-sm leading-relaxed">
                 <span className="font-bold text-[#607D8B]">@{post.user}</span> {translated[post.id] ? post.translated : post.content}
               </p>
               <button onClick={() => toggleTranslate(post.id)} className="mt-3 flex items-center gap-1 text-xs font-bold text-[#D4A373] border-b border-[#D4A373]">
@@ -199,7 +196,7 @@ export default function BshRetroApp() {
 
         {/* THREADS (TEXT FEED) */}
         {activeTab === 'threads' && (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <div className="bg-[#FEF9EF] border-2 border-[#607D8B] p-5 rounded-2xl shadow-sm relative">
               <div className="flex justify-between font-bold text-[#607D8B] mb-2">
                 <span>@BlueCat_Fan</span>
@@ -223,7 +220,7 @@ export default function BshRetroApp() {
 
         {/* SHOP (GOODS) */}
         {activeTab === 'shop' && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 px-4">
             {[1, 2].map(i => (
               <div key={i} className="bg-white border-2 border-[#4A4A4A] rounded-2xl p-3 shadow-[4px_4px_0px_0px_#607D8B]">
                 <div className="aspect-square bg-[#F5EFE6] rounded-xl mb-3 flex items-center justify-center">
@@ -239,44 +236,44 @@ export default function BshRetroApp() {
       </main>
 
       {/* 固定フッター */}
-      <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-[#4A4A4A] rounded-full p-4 flex justify-around items-center shadow-2xl z-40">
+      <footer className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[86%] max-w-sm bg-[#607D8B] rounded-full px-2.5 py-1.5 flex justify-around items-center shadow-xl z-40">
         <button
           onClick={() => setActiveBottomMenu('heart')}
-          className={`transition-all active:scale-95 ${activeBottomMenu === 'heart' ? 'text-red-500 opacity-100' : 'text-white opacity-50'}`}
+          className={`transition-all active:scale-95 ${activeBottomMenu === 'heart' ? 'text-[#F6C177] opacity-100' : 'text-[#F5EFE6] opacity-60'}`}
           aria-label="Favorites"
         >
-          <Heart size={24} className={activeBottomMenu === 'heart' ? 'fill-red-500' : ''} />
+          <Heart size={18} className={activeBottomMenu === 'heart' ? 'fill-[#F6C177]' : ''} />
         </button>
         <button
           onClick={() => setActiveBottomMenu('shop')}
-          className={`transition-all active:scale-95 ${activeBottomMenu === 'shop' ? 'text-red-500 opacity-100' : 'text-white opacity-50'}`}
+          className={`transition-all active:scale-95 ${activeBottomMenu === 'shop' ? 'text-[#F6C177] opacity-100' : 'text-[#F5EFE6] opacity-60'}`}
           aria-label="Shop"
         >
-          <ShoppingBag size={24} />
+          <ShoppingBag size={18} />
         </button>
         <button
           onClick={() => {
             setActiveBottomMenu('create');
             setIsComposerOpen(true);
           }}
-          className={`p-3 rounded-full -translate-y-2 border-4 border-[#FAF9F6] transition-all active:scale-95 ${activeBottomMenu === 'create' ? 'bg-red-500' : 'bg-[#D4A373]'}`}
+          className={`p-1.5 rounded-full -translate-y-0.5 border-2 border-[#FAF9F6] transition-all active:scale-95 ${activeBottomMenu === 'create' ? 'bg-[#D4A373]' : 'bg-[#7A93A0]'}`}
           aria-label="Create"
         >
-          <PlusCircle size={24} className="text-white" />
+          <PlusCircle size={18} className="text-[#FAF9F6]" />
         </button>
         <button
           onClick={() => setActiveBottomMenu('star')}
-          className={`transition-all active:scale-95 ${activeBottomMenu === 'star' ? 'text-red-500 opacity-100' : 'text-white opacity-50'}`}
+          className={`transition-all active:scale-95 ${activeBottomMenu === 'star' ? 'text-[#F6C177] opacity-100' : 'text-[#F5EFE6] opacity-60'}`}
           aria-label="Featured"
         >
-          <Star size={24} />
+          <Star size={18} />
         </button>
         <button
           onClick={() => setActiveBottomMenu('globe')}
-          className={`transition-all active:scale-95 ${activeBottomMenu === 'globe' ? 'text-red-500 opacity-100' : 'text-white opacity-50'}`}
+          className={`transition-all active:scale-95 ${activeBottomMenu === 'globe' ? 'text-[#F6C177] opacity-100' : 'text-[#F5EFE6] opacity-60'}`}
           aria-label="Global"
         >
-          <Globe size={24} />
+          <Globe size={18} />
         </button>
       </footer>
 
