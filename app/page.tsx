@@ -72,7 +72,7 @@ const DOODLE_POSTS = [
 const ME_STORY_AVATAR =
   "https://images.unsplash.com/photo-1513245533132-aa7f7058274a";
 
-type Post = {
+type FeedPost = {
   id: number;
   user: string;
   content: string;
@@ -86,7 +86,7 @@ type Post = {
   anonId?: string;
   createdAt?: string;
 };
-type DoodlePost = Post & { anonId: string; createdAt: string };
+type DoodlePost = FeedPost & { anonId: string; createdAt: string };
 
 type ThreadItem = {
   id: number;
@@ -230,7 +230,7 @@ type GalleryCommentRow = {
   created_at: string;
 };
 
-function isPostRecord(x: unknown): x is Post {
+function isPostRecord(x: unknown): x is FeedPost {
   if (typeof x !== "object" || x === null) return false;
   const o = x as Record<string, unknown>;
   return (
@@ -423,7 +423,7 @@ function BshRetroApp() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('sns');
-  const [feedPosts, setFeedPosts] = useState<Post[]>(POSTS);
+  const [feedPosts, setFeedPosts] = useState<FeedPost[]>(POSTS);
   const [doodlePosts, setDoodlePosts] = useState<DoodlePost[]>(DOODLE_POSTS);
   const [stories, setStories] = useState<StoryItem[]>(INITIAL_STORIES);
   const [feedComments, setFeedComments] = useState<Record<number, ThreadComment[]>>({});
@@ -827,7 +827,7 @@ function BshRetroApp() {
       const selectedImages = newPostImages.slice(0, 4);
       const firstImage = selectedImages[0] ?? "https://images.unsplash.com/photo-1513245543132-31f507417b26";
 
-      const newPost: Post = {
+      const newPost: FeedPost = {
         id: Date.now(),
         user: anonName,
         content: message,
