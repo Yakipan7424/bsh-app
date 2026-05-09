@@ -2,16 +2,9 @@
 
 import Link from "next/link";
 import { Cat, Construction, Sparkles } from "lucide-react";
+import { PROFILE_DEMO } from "./profile-data";
 
-const PROFILE = {
-  username: "bsh__maruneko",
-  displayName: "まるねこ BSH",
-  posts: 12,
-  followers: 342,
-  following: 89,
-  bio: "ブリティッシュショートヘア中心の投稿です🐾 ふかふかと丸さを愛でています。#BSH #BritishShorthair",
-  avatar: "https://images.unsplash.com/photo-1513245533132-aa7f7058274a",
-};
+const PROFILE = PROFILE_DEMO;
 
 export default function ProfilePage() {
   return (

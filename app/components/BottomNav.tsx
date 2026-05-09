@@ -11,7 +11,7 @@ export function BottomNav() {
 
   const isV2 = pathname === "/v2" || pathname.startsWith("/v2/");
   const homeRoot = isV2 ? "/v2" : "/";
-  const isProfile = pathname === "/profile";
+  const isProfile = pathname === "/profile" || pathname === "/v2/profile";
   const isHome = pathname === "/" || pathname === "/v2";
 
   const createHref =
@@ -123,7 +123,7 @@ export function BottomNav() {
             <ShoppingBag size={iconSize} strokeWidth={2} />
           </Link>
           <Link
-            href="/profile"
+            href={isV2 ? "/v2/profile" : "/profile"}
             scroll={false}
             className={`${tapTarget} rounded-full transition-all duration-300 ease-out active:opacity-80 ${profileActive ? iconActive : iconInactive}`}
             aria-label="マイページ"
