@@ -548,8 +548,8 @@ function BshRetroApp() {
     startX: 0,
     startScrollLeft: 0,
   });
-  /** タップとスワイプの区別（ライトボックス誤爆防止） */
-  const feedSlideTapRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  /** カルーセルスクロール直後は click でライトボックスを開かない（スワイプと競合させない） */
+  const feedCarouselScrollAtRef = useRef<Record<number, number>>({});
   const storyDragStateRef = useRef<{ startX: number | null; dragged: boolean }>({ startX: null, dragged: false });
   const storyStripRef = useRef<HTMLDivElement | null>(null);
   const storyStripDragRef = useRef({ isDragging: false, startX: 0, startScrollLeft: 0 });
@@ -2089,8 +2089,9 @@ function BshRetroApp() {
                     className="flex touch-pan-x cursor-grab overflow-x-auto overscroll-x-contain snap-x snap-mandatory select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
                     style={{ WebkitOverflowScrolling: "touch" }}
                     onScroll={(e) => {
-                      if (postImages.length <= 1) return;
                       const target = e.currentTarget;
+                      feedCarouselScrollAtRef.current[post.id] = Date.now();
+                      if (postImages.length <= 1) return;
                       const idx = Math.round(target.scrollLeft / target.clientWidth);
                       setFeedCarouselIndex((prev) => ({ ...prev, [post.id]: idx }));
                     }}
@@ -2102,21 +2103,25 @@ function BshRetroApp() {
                     {postImages.map((src, idx) => (
                       <div
                         key={`${post.id}-${idx}`}
-                        className="relative h-[46vh] w-full shrink-0 snap-center touch-manipulation"
-                        onPointerDown={(e) => {
-                          if (e.isPrimary) {
-                            feedSlideTapRef.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
-                          }
-                        }}
-                        onPointerUp={(e) => {
-                          const start = feedSlideTapRef.current;
-                          if (!start || e.pointerId !== start.pointerId) return;
-                          feedSlideTapRef.current = null;
-                          if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 20) return;
-                          if (!isVideoPost) setFeedLightboxSrc(src);
-                        }}
-                        onPointerCancel={() => {
-                          feedSlideTapRef.current = null;
+                        role={isVideoPost ? undefined : "button"}
+                        aria-label={isVideoPost ? undefined : `写真 ${idx + 1} を拡大表示`}
+                        tabIndex={isVideoPost ? undefined : 0}
+                        onKeyDown={
+                          isVideoPost
+                            ? undefined
+                            : (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setFeedLightboxSrc(src);
+                                }
+                              }
+                        }
+                        className="relative h-[46vh] w-full shrink-0 snap-center"
+                        onClick={() => {
+                          if (isVideoPost) return;
+                          const t = feedCarouselScrollAtRef.current[post.id] ?? 0;
+                          if (Date.now() - t < 280) return;
+                          setFeedLightboxSrc(src);
                         }}
                       >
                         <img

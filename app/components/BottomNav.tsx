@@ -68,8 +68,8 @@ export function BottomNav() {
         <Link
           href={createHref}
           scroll={false}
-          className="absolute left-1/2 top-1/2 flex min-h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#FAF9F6] bg-[#7A93A0] p-2 transition-all active:scale-95"
-          aria-label="Create"
+          className="absolute left-1/2 top-1/2 z-20 flex min-h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#FAF9F6] bg-[#7A93A0] p-2 transition-all active:scale-95"
+          aria-label="投稿を作成"
         >
           <PlusCircle size={centerIconSize} className="text-[#FAF9F6]" strokeWidth={2} />
         </Link>
