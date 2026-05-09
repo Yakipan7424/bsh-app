@@ -18,6 +18,7 @@ import {
   type SnsPostRow,
   updateSnsPostLikeCount,
 } from "@/lib/supabase/sns-feed";
+import { BshVariantProvider, useBshVariant } from "@/app/context/bsh-variant-context";
 
 // Google Fontsの 'Zen Maru Gothic' を適用するためのスタイル設定
 // ※実際には layout.tsx 等で読み込むのが理想ですが、まずは動かすためにここにスタイルを入れます。
@@ -414,14 +415,19 @@ async function shareBshPost(setToastMessage: (message: string) => void) {
 }
 
 function PawAvatar({ size = "md" }: { size?: "sm" | "md" }) {
+  const lounge = useBshVariant() === "lounge";
   const sizeClass = size === "sm" ? "h-8 w-8" : "h-10 w-10";
   const iconSize = size === "sm" ? 15 : 18;
   return (
     <div
-      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border-2 border-[#4A4A4A] bg-[#F7C6CF] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]`}
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] ${
+        lounge
+          ? "border-bsh-gold/55 bg-bsh-graphite"
+          : "border-[#4A4A4A] bg-[#F7C6CF]"
+      }`}
       aria-hidden
     >
-      <PawPrint size={iconSize} className="text-[#9E5C67]" />
+      <PawPrint size={iconSize} className={lounge ? "text-bsh-gold" : "text-[#9E5C67]"} />
     </div>
   );
 }
@@ -489,11 +495,13 @@ function getFileExtension(name: string, mimeType?: string) {
   return "jpg";
 }
 
-function BshRetroApp() {
+export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lounge" }) {
   /** ホーム押下時：ストーリー帯〜最新投稿が見える位置へスクロール */
   const homeScrollRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isLounge = variant === "lounge";
+  const basePath = isLounge ? "/v2" : "";
   const [activeTab, setActiveTab] = useState('sns');
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>(POSTS);
   const [doodlePosts, setDoodlePosts] = useState<DoodlePost[]>(DOODLE_POSTS);
@@ -724,8 +732,9 @@ function BshRetroApp() {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("compose");
     const qs = next.toString();
-    router.replace(qs ? `/?${qs}` : "/", { scroll: false });
-  }, [searchParams, router]);
+    const dest = qs ? (basePath ? `${basePath}?${qs}` : `/?${qs}`) : basePath || "/";
+    router.replace(dest, { scroll: false });
+  }, [searchParams, router, basePath]);
 
   useEffect(() => {
     const onScrollHome = () => scrollToHomeAnchor();
@@ -1868,47 +1877,95 @@ function BshRetroApp() {
   }, [selectedStoryIndex, selectedStory]);
 
   return (
-    <div className="relative z-0 mx-auto min-h-screen max-w-md bg-[#FAF9F6] pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] font-['Zen_Maru_Gothic',sans-serif] text-[#4A4A4A] shadow-2xl">
-      {/* 共通スタイル（丸ゴシック） */}
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap');
-        @keyframes storyPop {
-          0% { transform: scale(1); }
-          55% { transform: scale(1.14); }
-          100% { transform: scale(1.06); }
+    <BshVariantProvider value={variant}>
+      <div
+        className={
+          isLounge
+            ? "bsh-v2-lounge relative z-0 mx-auto min-h-screen max-w-md bg-lounge-night pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] font-[family-name:var(--font-bsh-inter),ui-sans-serif,system-ui,sans-serif] font-light text-bsh-ivory shadow-none transition-colors duration-300 ease-out"
+            : "relative z-0 mx-auto min-h-screen max-w-md bg-[#FAF9F6] pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] font-['Zen_Maru_Gothic',sans-serif] text-[#4A4A4A] shadow-2xl"
         }
-        @keyframes modalFadeIn {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        @keyframes modalZoomIn {
-          0% { opacity: 0; transform: scale(0.9); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
+      >
+        {/* 共通スタイル（丸ゴシック）— /v2 ではレイアウト側フォントを使用 */}
+        {!isLounge && (
+          <style jsx global>{`
+            @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap');
+            @keyframes storyPop {
+              0% { transform: scale(1); }
+              55% { transform: scale(1.14); }
+              100% { transform: scale(1.06); }
+            }
+            @keyframes modalFadeIn {
+              0% { opacity: 0; }
+              100% { opacity: 1; }
+            }
+            @keyframes modalZoomIn {
+              0% { opacity: 0; transform: scale(0.9); }
+              100% { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
+        )}
+        {isLounge && (
+          <style jsx global>{`
+            @keyframes storyPop {
+              0% { transform: scale(1); }
+              55% { transform: scale(1.14); }
+              100% { transform: scale(1.06); }
+            }
+            @keyframes modalFadeIn {
+              0% { opacity: 0; }
+              100% { opacity: 1; }
+            }
+            @keyframes modalZoomIn {
+              0% { opacity: 0; transform: scale(0.9); }
+              100% { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
+        )}
 
-      {/* ヘッダー：レトロな雑誌風 */}
-      <header className="sticky top-0 bg-[#F5EFE6] border-b-4 border-[#607D8B] px-5 py-3 flex justify-between items-center z-30">
-        <h1 className="text-2xl font-bold text-[#607D8B] italic tracking-tighter">BSH Times 🐾</h1>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setIsUpdateModalOpen(true)}
-            className="rounded-full border border-[#607D8B] bg-[#FFF8EE] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#607D8B] transition-opacity hover:opacity-80"
+        {/* ヘッダー */}
+        <header
+          className={
+            isLounge
+              ? "sticky top-0 z-30 flex items-center justify-between border-b border-bsh-gold/35 bg-gradient-to-b from-bsh-noir to-bsh-burgundy px-5 py-3 transition-colors duration-300 ease-out"
+              : "sticky top-0 z-30 flex items-center justify-between border-b-4 border-[#607D8B] bg-[#F5EFE6] px-5 py-3"
+          }
+        >
+          <h1
+            className={
+              isLounge
+                ? "font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-2xl font-semibold italic tracking-[0.05em] text-bsh-gold transition-opacity duration-300 ease-out"
+                : "text-2xl font-bold italic tracking-tighter text-[#607D8B]"
+            }
           >
-            Update
-          </button>
-          <a
-            href="https://www.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#D4A373] transition-opacity hover:opacity-70"
-            aria-label="Google を別タブで開く"
-          >
-            <Globe size={24} aria-hidden />
-          </a>
-        </div>
-      </header>
+            BSH Times <span className={isLounge ? "text-bsh-gold" : ""}>🐾</span>
+          </h1>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsUpdateModalOpen(true)}
+              className={
+                isLounge
+                  ? "rounded-full border border-bsh-bordeaux bg-transparent px-2 py-0.5 text-[10px] font-bold tracking-wide text-bsh-gold transition-opacity duration-300 ease-out hover:opacity-85"
+                  : "rounded-full border border-[#607D8B] bg-[#FFF8EE] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#607D8B] transition-opacity hover:opacity-80"
+              }
+            >
+              Update
+            </button>
+            <a
+              href="https://www.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={
+                isLounge
+                  ? "text-bsh-amber transition-opacity duration-300 ease-out hover:opacity-80"
+                  : "text-[#D4A373] transition-opacity hover:opacity-70"
+              }
+              aria-label="Google を別タブで開く"
+            >
+              <Globe size={24} aria-hidden />
+            </a>
+          </div>
+        </header>
 
       {isUpdateModalOpen && (
         <div
@@ -1948,8 +2005,14 @@ function BshRetroApp() {
         </div>
       )}
 
-      {/* ナビゲーションタチE*/}
-      <nav className="flex sticky top-[64px] z-20 bg-white border-b-2 border-[#607D8B]">
+      {/* ナビゲーションタブ */}
+      <nav
+        className={
+          isLounge
+            ? "sticky top-[64px] z-20 flex border-b border-bsh-gold/40 bg-bsh-graphite/90 backdrop-blur-sm transition-colors duration-300 ease-out"
+            : "sticky top-[64px] z-20 flex border-b-2 border-[#607D8B] bg-white"
+        }
+      >
         {[
           { key: "sns", label: "ニャード" },
           { key: "threads", label: "ニャット" },
@@ -1960,13 +2023,22 @@ function BshRetroApp() {
             key={tab.key}
             onClick={() => {
               setActiveTab(tab.key);
-              if (tab.key === 'sns') {
-                router.replace('/', { scroll: false });
+              if (tab.key === "sns") {
+                router.replace(basePath || "/", { scroll: false });
               } else {
-                router.replace(`/?tab=${tab.key}`, { scroll: false });
+                const q = `tab=${tab.key}`;
+                router.replace(basePath ? `${basePath}?${q}` : `/?${q}`, { scroll: false });
               }
             }}
-            className={`flex-1 py-1.5 text-[11px] font-bold tracking-tight transition-all ${activeTab === tab.key ? 'bg-[#607D8B] text-white' : 'text-[#607D8B] hover:bg-[#F5EFE6]'}`}
+            className={`flex-1 py-1.5 text-[11px] font-bold tracking-tight transition-all duration-300 ease-out ${
+              activeTab === tab.key
+                ? isLounge
+                  ? "bg-bsh-bordeaux text-bsh-gold"
+                  : "bg-[#607D8B] text-white"
+                : isLounge
+                  ? "text-bsh-ivory/90 hover:bg-white/5"
+                  : "text-[#607D8B] hover:bg-[#F5EFE6]"
+            }`}
           >
             {tab.label}
           </button>
@@ -1976,7 +2048,11 @@ function BshRetroApp() {
       {/* ストーリー（ホームスクロールの先頭） */}
       <section
         ref={homeScrollRef}
-        className="scroll-mt-28 px-4 py-2 bg-[#FFF8EE] border-b-2 border-[#EADBC8]"
+        className={
+          isLounge
+            ? "scroll-mt-28 border-b border-bsh-gold/30 bg-gradient-to-b from-bsh-burgundy/35 to-bsh-noir px-4 py-2 transition-colors duration-300 ease-out"
+            : "scroll-mt-28 border-b-2 border-[#EADBC8] bg-[#FFF8EE] px-4 py-2"
+        }
       >
         <div
           ref={storyStripRef}
@@ -2001,13 +2077,21 @@ function BshRetroApp() {
               <img
                 src={ME_STORY_AVATAR}
                 alt=""
-                className="h-full w-full rounded-full border-2 border-[#DBDBDB] bg-[#FAF9F6] object-cover"
+                className={
+                  isLounge
+                    ? "h-full w-full rounded-full border-2 border-bsh-gold/40 bg-bsh-graphite object-cover"
+                    : "h-full w-full rounded-full border-2 border-[#DBDBDB] bg-[#FAF9F6] object-cover"
+                }
               />
               <span
-                className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-[#FFF8EE] bg-[#0095F6] text-white shadow-sm"
+                className={
+                  isLounge
+                    ? "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-bsh-graphite bg-bsh-bordeaux text-bsh-gold shadow-sm"
+                    : "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-[#FFF8EE] bg-[#0095F6] text-white shadow-sm"
+                }
                 aria-hidden
               >
-                <Plus size={11} strokeWidth={3} className="text-white" />
+                <Plus size={11} strokeWidth={3} className={isLounge ? "text-bsh-gold" : "text-white"} />
               </span>
             </span>
           </button>
@@ -2020,10 +2104,16 @@ function BshRetroApp() {
               aria-label={`${story.name}のストーリー`}
             >
               <span
-                className={`p-[3px] rounded-full bg-gradient-to-tr from-[#F6B36A] via-[#E56B6F] to-[#8E7DBE] shadow-sm transition-all duration-300 ${activeStory === story.id ? 'shadow-[0_0_0_2px_rgba(250,249,246,0.95)]' : ''}`}
+                className={`p-[3px] rounded-full bg-gradient-to-tr shadow-sm transition-all duration-300 ease-out ${
+                  isLounge
+                    ? "from-bsh-gold via-bsh-amber to-bsh-bordeaux"
+                    : "from-[#F6B36A] via-[#E56B6F] to-[#8E7DBE]"
+                } ${activeStory === story.id ? "shadow-[0_0_0_2px_rgba(250,249,246,0.95)]" : ""}`}
               >
                 <span
-                  className={`block w-11 h-11 rounded-full p-[2px] bg-[#FAF9F6] overflow-hidden transition-transform duration-300 ${poppingStory === story.id ? 'animate-[storyPop_420ms_ease-out] scale-105' : 'group-hover:scale-105'}`}
+                  className={`block h-11 w-11 overflow-hidden rounded-full p-[2px] transition-transform duration-300 ease-out ${
+                    isLounge ? "bg-bsh-graphite" : "bg-[#FAF9F6]"
+                  } ${poppingStory === story.id ? "animate-[storyPop_420ms_ease-out] scale-105" : "group-hover:scale-105"}`}
                 >
                   {story.mediaType === "video" ? (
                     <video
@@ -2031,13 +2121,21 @@ function BshRetroApp() {
                       muted
                       playsInline
                       preload="metadata"
-                      className="w-full h-full rounded-full object-cover border-2 border-[#FAF9F6]"
+                      className={
+                        isLounge
+                          ? "h-full w-full rounded-full border-2 border-bsh-graphite object-cover"
+                          : "h-full w-full rounded-full border-2 border-[#FAF9F6] object-cover"
+                      }
                     />
                   ) : (
                     <img
                       src={story.mediaUrl}
                       alt={story.name}
-                      className="w-full h-full rounded-full object-cover border-2 border-[#FAF9F6]"
+                      className={
+                        isLounge
+                          ? "h-full w-full rounded-full border-2 border-bsh-graphite object-cover"
+                          : "h-full w-full rounded-full border-2 border-[#FAF9F6] object-cover"
+                      }
                     />
                   )}
                 </span>
@@ -2049,39 +2147,83 @@ function BshRetroApp() {
 
       <main className="px-0 pb-12 pt-3">
         {/* SNS FEED */}
-        {activeTab === 'sns' && feedPosts.map(post => (
-          <div key={post.id} className="bg-white border-y-2 border-[#4A4A4A] mb-5 shadow-[0_6px_0_0_rgba(212,163,115,0.35)] overflow-hidden">
+        {activeTab === "sns" &&
+          feedPosts.map((post) => (
             <div
-              className="px-3 py-1.5 flex items-start justify-between gap-2 border-b-2 border-[#FAF9F6]"
-              style={SNS_PAW_STAMP_BG}
+              key={post.id}
+              className={
+                isLounge
+                  ? "bsh-lounge-card bsh-lounge-card-surface relative z-0 mx-3 mb-5 overflow-hidden shadow-[0_14px_32px_-12px_rgba(107,31,46,0.55),0_6px_16px_-8px_rgba(0,0,0,0.45)] transition-shadow duration-300 ease-out"
+                  : "mb-5 overflow-hidden border-y-2 border-[#4A4A4A] bg-white shadow-[0_6px_0_0_rgba(212,163,115,0.35)]"
+              }
             >
-              <div className="flex items-center gap-2">
-                <PawAvatar />
-                <div>
-                  <span className="block font-bold text-[11px] leading-none text-[#607D8B]">{post.user}</span>
-                  <span className="block text-[8px] leading-none text-[#7D7D7D]">
-                    {formatNyatTime(post.createdAt, "たった今")}
+              <div
+                className={
+                  isLounge
+                    ? "flex items-start justify-between gap-2 border-b border-bsh-gold/25 bg-bsh-graphite/60 px-3 py-1.5 backdrop-blur-[2px]"
+                    : "flex items-start justify-between gap-2 border-b-2 border-[#FAF9F6] px-3 py-1.5"
+                }
+                style={isLounge ? undefined : SNS_PAW_STAMP_BG}
+              >
+                <div className="flex items-center gap-2">
+                  <PawAvatar />
+                  <div>
+                    <span
+                      className={
+                        isLounge
+                          ? "block text-[11px] font-semibold leading-none text-bsh-ivory"
+                          : "block text-[11px] font-bold leading-none text-[#607D8B]"
+                      }
+                    >
+                      {post.user}
+                    </span>
+                    <span
+                      className={
+                        isLounge
+                          ? "block text-[8px] leading-none text-bsh-amber/90"
+                          : "block text-[8px] leading-none text-[#7D7D7D]"
+                      }
+                    >
+                      {formatNyatTime(post.createdAt, "たった今")}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={
+                      isLounge
+                        ? "text-[8px] leading-none text-bsh-gold/70"
+                        : "text-[8px] leading-none text-[#8A8A8A]"
+                    }
+                  >
+                    ID:{post.anonId ?? "GUEST00"}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => removeFeedPost(post.id)}
+                    className={
+                      isLounge
+                        ? "h-4 w-4 rounded-full border border-bsh-gold/30 text-[10px] leading-none text-bsh-ivory/70 transition-colors duration-300 ease-out hover:bg-white/5"
+                        : "h-4 w-4 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                    }
+                    aria-label="投稿を削除"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-[8px] leading-none text-[#8A8A8A]">ID:{post.anonId ?? "GUEST00"}</span>
-                <button
-                  type="button"
-                  onClick={() => removeFeedPost(post.id)}
-                  className="h-4 w-4 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
-                  aria-label="投稿を削除"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
             {(() => {
               const postImages = post.images && post.images.length > 0 ? post.images : [post.image];
               const activeIdx = Math.min(feedCarouselIndex[post.id] ?? 0, postImages.length - 1);
               const isVideoPost = post.mediaType === "video";
               return (
-                <div className="group relative z-0 border-b-2 border-[#4A4A4A]">
+                <div
+                  className={
+                    isLounge
+                      ? "group relative z-0 border-b border-bsh-gold/20"
+                      : "group relative z-0 border-b-2 border-[#4A4A4A]"
+                  }
+                >
                   <div
                     ref={(node) => {
                       feedCarouselRefs.current[post.id] = node;
@@ -2177,7 +2319,10 @@ function BshRetroApp() {
                 </div>
               );
             })()}
-            <div className="px-3 py-1.5" style={SNS_PAW_STAMP_BG}>
+            <div
+              className={isLounge ? "relative z-[1] px-3 py-1.5" : "px-3 py-1.5"}
+              style={isLounge ? undefined : SNS_PAW_STAMP_BG}
+            >
               <div className="mb-1 flex gap-3">
                 <button
                   onClick={(e) => {
@@ -2185,14 +2330,32 @@ function BshRetroApp() {
                     e.stopPropagation();
                     void togglePostLike(post.id);
                   }}
-                  className="touch-manipulation flex items-center gap-1 transition-transform hover:scale-110 active:scale-95"
+                  className={
+                    isLounge
+                      ? "touch-manipulation flex items-center gap-1 transition-opacity duration-300 ease-out active:opacity-75"
+                      : "touch-manipulation flex items-center gap-1 transition-transform hover:scale-110 active:scale-95"
+                  }
                   aria-label="Like post"
                 >
                   <Heart
                     size={20}
-                    className={`cursor-pointer transition-colors ${likedPosts[post.id] ? 'text-red-500 fill-red-500' : 'text-[#E56B6F]'}`}
+                    className={`cursor-pointer transition-colors duration-300 ease-out ${
+                      likedPosts[post.id]
+                        ? isLounge
+                          ? "fill-bsh-bordeaux text-bsh-bordeaux"
+                          : "fill-red-500 text-red-500"
+                        : isLounge
+                          ? "text-bsh-ivory/85"
+                          : "text-[#E56B6F]"
+                    }`}
                   />
-                  <span className="text-[10px] font-bold leading-none text-[#6C5A49]">
+                  <span
+                    className={
+                      isLounge
+                        ? "text-[10px] font-semibold leading-none text-bsh-amber/85"
+                        : "text-[10px] font-bold leading-none text-[#6C5A49]"
+                    }
+                  >
                     {feedLikeCounts[post.id] ?? post.likes ?? 0}
                   </span>
                 </button>
@@ -2202,7 +2365,11 @@ function BshRetroApp() {
                     setFeedCommentTargetId((prev) => (prev === post.id ? null : post.id));
                     setNewFeedCommentText("");
                   }}
-                  className="touch-manipulation transition-transform hover:scale-110 active:scale-95"
+                  className={
+                    isLounge
+                      ? "touch-manipulation text-bsh-ivory/85 transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
+                      : "touch-manipulation transition-transform hover:scale-110 active:scale-95"
+                  }
                   aria-label="投稿にコメント"
                 >
                   <MessageCircle size={20} />
@@ -2210,41 +2377,89 @@ function BshRetroApp() {
                 <button
                   type="button"
                   onClick={() => shareBshPost(setToastMessage)}
-                  className="touch-manipulation transition-transform hover:scale-110 active:scale-95"
+                  className={
+                    isLounge
+                      ? "touch-manipulation text-bsh-ivory/85 transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
+                      : "touch-manipulation transition-transform hover:scale-110 active:scale-95"
+                  }
                   aria-label="投稿をシェア"
                 >
                   <Send size={20} />
                 </button>
               </div>
-              <p className="text-[12px] leading-snug">
-                <span className="font-bold text-[#607D8B]">{post.user}</span> {post.content}
+              <p
+                className={
+                  isLounge
+                    ? "text-[12px] leading-relaxed text-bsh-ivory/95"
+                    : "text-[12px] leading-snug"
+                }
+              >
+                <span className={isLounge ? "font-semibold text-bsh-ivory" : "font-bold text-[#607D8B]"}>
+                  {post.user}
+                </span>{" "}
+                {post.content}
               </p>
               {(feedComments[post.id]?.length ?? 0) > 0 && (
                 <div className="mt-1 space-y-1">
                   {(feedComments[post.id] ?? []).slice(-2).map((comment) => (
-                    <div key={comment.id} className="ml-1.5 rounded-md bg-[#FFFCF7] px-1.5 py-0.5">
+                    <div
+                      key={comment.id}
+                      className={
+                        isLounge
+                          ? "ml-1.5 rounded-[4px] border border-bsh-gold/20 bg-bsh-noir/50 px-1.5 py-0.5"
+                          : "ml-1.5 rounded-md bg-[#FFFCF7] px-1.5 py-0.5"
+                      }
+                    >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-[9px] font-bold leading-none text-[#607D8B]">{comment.user}</p>
+                        <p
+                          className={
+                            isLounge
+                              ? "truncate text-[9px] font-semibold leading-none text-bsh-ivory"
+                              : "truncate text-[9px] font-bold leading-none text-[#607D8B]"
+                          }
+                        >
+                          {comment.user}
+                        </p>
                         <button
                           type="button"
                           onClick={() => removeFeedComment(post.id, comment.id)}
-                          className="h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/30 text-[10px] leading-none text-[#607D8B]/65"
+                          className={
+                            isLounge
+                              ? "h-4 w-4 shrink-0 rounded-full border border-bsh-gold/25 text-[10px] leading-none text-bsh-ivory/65"
+                              : "h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/30 text-[10px] leading-none text-[#607D8B]/65"
+                          }
                           aria-label="コメントを削除"
                         >
                           ×
                         </button>
                       </div>
-                      <p className="text-[8px] leading-none text-[#7D7D7D]">
+                      <p
+                        className={
+                          isLounge
+                            ? "text-[8px] leading-none text-bsh-amber/80"
+                            : "text-[8px] leading-none text-[#7D7D7D]"
+                        }
+                      >
                         {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                       </p>
-                      <p className="text-[9px] leading-tight text-[#4A4A4A]">{comment.text}</p>
+                      <p
+                        className={
+                          isLounge ? "text-[9px] leading-tight text-bsh-ivory/90" : "text-[9px] leading-tight text-[#4A4A4A]"
+                        }
+                      >
+                        {comment.text}
+                      </p>
                     </div>
                   ))}
                   {(feedComments[post.id]?.length ?? 0) > 2 && (
                     <button
                       type="button"
                       onClick={() => setFeedCommentsModalPostId(post.id)}
-                      className="text-[9px] font-bold text-[#607D8B] underline underline-offset-2"
+                      className={
+                        isLounge
+                          ? "text-[9px] font-semibold text-bsh-amber underline underline-offset-2 transition-opacity duration-300 ease-out hover:opacity-85"
+                          : "text-[9px] font-bold text-[#607D8B] underline underline-offset-2"
+                      }
                     >
                       すべてのコメントを見る
                     </button>
@@ -2252,12 +2467,22 @@ function BshRetroApp() {
                 </div>
               )}
               {feedCommentTargetId === post.id && (
-                <div className="mt-1 rounded-lg border border-[#D4A373]/45 bg-[#FFF8EE] p-1.5">
+                <div
+                  className={
+                    isLounge
+                      ? "mt-1 rounded-[4px] border border-bsh-gold/30 bg-bsh-graphite/80 p-1.5"
+                      : "mt-1 rounded-lg border border-[#D4A373]/45 bg-[#FFF8EE] p-1.5"
+                  }
+                >
                   <textarea
                     value={newFeedCommentText}
                     onChange={(e) => setNewFeedCommentText(e.target.value)}
                     placeholder="コメントを書くニャ..."
-                    className="h-14 w-full resize-none rounded-md border border-[#D4A373] bg-[#FFFCF7] p-1.5 text-[10px] leading-snug outline-none focus:border-[#607D8B]"
+                    className={
+                      isLounge
+                        ? "h-14 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-1.5 text-[10px] leading-snug text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                        : "h-14 w-full resize-none rounded-md border border-[#D4A373] bg-[#FFFCF7] p-1.5 text-[10px] leading-snug outline-none focus:border-[#607D8B]"
+                    }
                   />
                   <div className="mt-1.5 flex justify-end gap-1.5">
                     <button
@@ -2266,14 +2491,22 @@ function BshRetroApp() {
                         setFeedCommentTargetId(null);
                         setNewFeedCommentText("");
                       }}
-                      className="rounded-full border border-[#607D8B] px-2.5 py-1 text-[10px] font-bold text-[#607D8B]"
+                      className={
+                        isLounge
+                          ? "rounded-full border border-bsh-gold/40 px-2.5 py-1 text-[10px] font-semibold text-bsh-gold transition-opacity duration-300 ease-out hover:opacity-85"
+                          : "rounded-full border border-[#607D8B] px-2.5 py-1 text-[10px] font-bold text-[#607D8B]"
+                      }
                     >
                       閉じる
                     </button>
                     <button
                       type="button"
                       onClick={() => submitFeedComment(post.id)}
-                      className="rounded-full bg-[#E56B6F] px-3 py-1 text-[10px] font-bold text-white disabled:opacity-50"
+                      className={
+                        isLounge
+                          ? "rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-3 py-1 text-[10px] font-semibold text-bsh-ivory transition-opacity duration-300 ease-out disabled:opacity-50 hover:opacity-90"
+                          : "rounded-full bg-[#E56B6F] px-3 py-1 text-[10px] font-bold text-white disabled:opacity-50"
+                      }
                       disabled={!newFeedCommentText.trim()}
                     >
                       投稿
@@ -2286,19 +2519,31 @@ function BshRetroApp() {
         ))}
 
         {/* NYAT (TEXT FEED) */}
-        {activeTab === 'threads' && (
+        {activeTab === "threads" && (
           <div className="space-y-2.5 px-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-[#607D8B] tracking-tight">NYAT</span>
+              <span
+                className={
+                  isLounge
+                    ? "font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-[11px] font-semibold tracking-[0.12em] text-bsh-gold"
+                    : "text-[11px] font-bold tracking-tight text-[#607D8B]"
+                }
+              >
+                NYAT
+              </span>
               <button
                 type="button"
                 onClick={() => {
                   setIsThreadComposerOpen(true);
                 }}
-                className="flex items-center gap-1 rounded-full bg-[#607D8B] px-2 py-1 text-[10px] font-bold text-white shadow-sm transition-transform active:scale-95"
+                className={
+                  isLounge
+                    ? "flex items-center gap-1 rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-2 py-1 text-[10px] font-semibold text-bsh-ivory shadow-[0_6px_18px_-10px_rgba(0,0,0,0.55)] transition-opacity duration-300 ease-out active:opacity-85"
+                    : "flex items-center gap-1 rounded-full bg-[#607D8B] px-2 py-1 text-[10px] font-bold text-white shadow-sm transition-transform active:scale-95"
+                }
                 aria-label="NYATを投稿"
               >
-                <PlusCircle size={14} className="text-[#FAF9F6]" />
+                <PlusCircle size={14} className={isLounge ? "text-bsh-gold" : "text-[#FAF9F6]"} />
                 投稿
               </button>
             </div>
@@ -2306,39 +2551,81 @@ function BshRetroApp() {
               <React.Fragment key={thread.id}>
                 {idx > 0 && (
                   <div
-                    className="py-1 text-center text-[10px] tracking-[0.35em] text-[#D4A373]/40"
+                    className={
+                      isLounge
+                        ? "py-1 text-center text-[10px] tracking-[0.35em] text-bsh-gold/35"
+                        : "py-1 text-center text-[10px] tracking-[0.35em] text-[#D4A373]/40"
+                    }
                     aria-hidden
                   >
                     🐾 🐾 🐾
                   </div>
                 )}
-                <div className="bg-[#FEF9EF] border border-[#607D8B] px-2.5 py-2 rounded-lg shadow-sm relative">
-                  <div className="mb-1 flex items-start justify-between gap-2 font-bold text-[#607D8B]">
+                <div
+                  className={
+                    isLounge
+                      ? "bsh-lounge-card bsh-lounge-card-surface relative rounded-[4px] px-2.5 py-2 shadow-[0_12px_28px_-14px_rgba(107,31,46,0.5)]"
+                      : "relative rounded-lg border border-[#607D8B] bg-[#FEF9EF] px-2.5 py-2 shadow-sm"
+                  }
+                >
+                  <div
+                    className={
+                      isLounge
+                        ? "mb-1 flex items-start justify-between gap-2 font-semibold text-bsh-ivory"
+                        : "mb-1 flex items-start justify-between gap-2 font-bold text-[#607D8B]"
+                    }
+                  >
                     <div className="flex items-start gap-2">
                       <PawAvatar size="sm" />
                       <div>
                         <span className="block text-[11px]">{thread.user}</span>
-                        <span className="block text-[9px] font-normal opacity-65">
+                        <span
+                          className={
+                            isLounge
+                              ? "block text-[9px] font-normal text-bsh-amber/85"
+                              : "block text-[9px] font-normal opacity-65"
+                          }
+                        >
                           {formatNyatTime(thread.createdAt, thread.timeLabel)}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] font-normal opacity-75">
+                      <span
+                        className={
+                          isLounge ? "text-[9px] font-normal text-bsh-gold/70" : "text-[9px] font-normal opacity-75"
+                        }
+                      >
                         ID:{thread.anonId ?? "GUEST00"}
                       </span>
                       <button
                         type="button"
                         onClick={() => removeThreadPost(thread.id)}
-                        className="h-4 w-4 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                        className={
+                          isLounge
+                            ? "h-4 w-4 rounded-full border border-bsh-gold/30 text-[10px] leading-none text-bsh-ivory/70 transition-colors duration-300 ease-out hover:bg-white/5"
+                            : "h-4 w-4 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                        }
                         aria-label="NYAT投稿を削除"
                       >
                         ×
                       </button>
                     </div>
                   </div>
-                  <p className="text-[11px] leading-snug text-[#4A4A4A]">{thread.text}</p>
-                  <div className="mt-1.5 flex gap-3 text-[#D4A373]">
+                  <p
+                    className={
+                      isLounge
+                        ? "text-[11px] leading-relaxed text-bsh-ivory/95"
+                        : "text-[11px] leading-snug text-[#4A4A4A]"
+                    }
+                  >
+                    {thread.text}
+                  </p>
+                  <div
+                    className={
+                      isLounge ? "mt-1.5 flex gap-3 text-bsh-ivory/80" : "mt-1.5 flex gap-3 text-[#D4A373]"
+                    }
+                  >
                     <button
                       type="button"
                       onClick={(e) => {
@@ -2346,52 +2633,116 @@ function BshRetroApp() {
                         e.stopPropagation();
                         toggleThreadLike(thread.id);
                       }}
-                      className="flex items-center gap-1 transition-transform hover:scale-110 active:scale-95"
+                      className={
+                        isLounge
+                          ? "flex items-center gap-1 transition-opacity duration-300 ease-out active:opacity-75"
+                          : "flex items-center gap-1 transition-transform hover:scale-110 active:scale-95"
+                      }
                       aria-label="NYATにいいね"
                     >
                       <Heart
                         size={15}
-                        className={`transition-colors ${likedThreads[thread.id] ? 'text-red-500 fill-red-500' : ''}`}
+                        className={`transition-colors duration-300 ease-out ${
+                          likedThreads[thread.id]
+                            ? isLounge
+                              ? "fill-bsh-bordeaux text-bsh-bordeaux"
+                              : "fill-red-500 text-red-500"
+                            : isLounge
+                              ? "text-bsh-ivory/85"
+                              : ""
+                        }`}
                       />
-                      <span className="text-[10px] font-bold text-[#6C5A49]">{threadLikeCounts[thread.id] ?? 0}</span>
+                      <span
+                        className={
+                          isLounge
+                            ? "text-[10px] font-semibold text-bsh-amber/85"
+                            : "text-[10px] font-bold text-[#6C5A49]"
+                        }
+                      >
+                        {threadLikeCounts[thread.id] ?? 0}
+                      </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => openThreadCommentModal(thread.id)}
-                      className="transition-transform hover:scale-110 active:scale-95"
+                      className={
+                        isLounge
+                          ? "transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
+                          : "transition-transform hover:scale-110 active:scale-95"
+                      }
                       aria-label="NYATにコメント"
                     >
                       <MessageCircle size={15} />
                     </button>
                   </div>
                   {(threadComments[thread.id]?.length ?? 0) > 0 && (
-                    <div className="mt-1.5 border-t border-[#D4A373]/35 pt-1.5">
-                      <p className="mb-1 text-[9px] font-bold tracking-wide text-[#607D8B]">
+                    <div
+                      className={
+                        isLounge
+                          ? "mt-1.5 border-t border-bsh-gold/20 pt-1.5"
+                          : "mt-1.5 border-t border-[#D4A373]/35 pt-1.5"
+                      }
+                    >
+                      <p
+                        className={
+                          isLounge
+                            ? "mb-1 text-[9px] font-semibold tracking-wide text-bsh-gold/90"
+                            : "mb-1 text-[9px] font-bold tracking-wide text-[#607D8B]"
+                        }
+                      >
                         COMMENTS ({threadComments[thread.id].length})
                       </p>
                       <div className="space-y-1.5">
                         {threadComments[thread.id].map((comment) => (
                           <div
                             key={comment.id}
-                            className="ml-3 rounded-md border border-[#D4A373]/35 bg-[#FFFDF8] px-2 py-1"
+                            className={
+                              isLounge
+                                ? "ml-3 rounded-[4px] border border-bsh-gold/22 bg-bsh-noir/45 px-2 py-1"
+                                : "ml-3 rounded-md border border-[#D4A373]/35 bg-[#FFFDF8] px-2 py-1"
+                            }
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="truncate text-[10px] font-bold text-[#607D8B]">{comment.user}</p>
-                                <p className="text-[9px] text-[#7D7D7D]">
+                                <p
+                                  className={
+                                    isLounge
+                                      ? "truncate text-[10px] font-semibold text-bsh-ivory"
+                                      : "truncate text-[10px] font-bold text-[#607D8B]"
+                                  }
+                                >
+                                  {comment.user}
+                                </p>
+                                <p
+                                  className={
+                                    isLounge ? "text-[9px] text-bsh-amber/85" : "text-[9px] text-[#7D7D7D]"
+                                  }
+                                >
                                   {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                                 </p>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => removeThreadComment(thread.id, comment.id)}
-                                className="h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                                className={
+                                  isLounge
+                                    ? "h-4 w-4 shrink-0 rounded-full border border-bsh-gold/25 text-[10px] leading-none text-bsh-ivory/65 transition-colors duration-300 ease-out hover:bg-white/5"
+                                    : "h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                                }
                                 aria-label="コメントを削除"
                               >
                                 ×
                               </button>
                             </div>
-                            <p className="mt-0.5 text-[10px] leading-snug text-[#4A4A4A]">{comment.text}</p>
+                            <p
+                              className={
+                                isLounge
+                                  ? "mt-0.5 text-[10px] leading-snug text-bsh-ivory/92"
+                                  : "mt-0.5 text-[10px] leading-snug text-[#4A4A4A]"
+                              }
+                            >
+                              {comment.text}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -2404,16 +2755,36 @@ function BshRetroApp() {
         )}
 
         {/* SHOP (GOODS) */}
-        {activeTab === 'shop' && (
+        {activeTab === "shop" && (
           <div className="px-4">
-            <div className="rounded-3xl border-2 border-dashed border-[#607D8B] bg-[#FFF8EE] px-6 py-10 text-center shadow-[0_8px_0_0_rgba(212,163,115,0.35)]">
-              <div className="mx-auto mb-4 flex w-fit items-center gap-2 rounded-full bg-[#F5EFE6] px-4 py-2">
-                <Cat size={24} className="text-[#607D8B]" />
-                <Star size={20} className="text-[#D4A373]" />
-                <ShoppingBag size={22} className="text-[#E56B6F]" />
+            <div
+              className={
+                isLounge
+                  ? "bsh-lounge-card bsh-lounge-card-surface rounded-[4px] border border-dashed border-bsh-gold/35 px-6 py-10 text-center shadow-[0_14px_32px_-14px_rgba(107,31,46,0.45)]"
+                  : "rounded-3xl border-2 border-dashed border-[#607D8B] bg-[#FFF8EE] px-6 py-10 text-center shadow-[0_8px_0_0_rgba(212,163,115,0.35)]"
+              }
+            >
+              <div
+                className={
+                  isLounge
+                    ? "mx-auto mb-4 flex w-fit items-center gap-2 rounded-full border border-bsh-gold/25 bg-bsh-burgundy/40 px-4 py-2"
+                    : "mx-auto mb-4 flex w-fit items-center gap-2 rounded-full bg-[#F5EFE6] px-4 py-2"
+                }
+              >
+                <Cat size={24} className={isLounge ? "text-bsh-gold" : "text-[#607D8B]"} />
+                <Star size={20} className={isLounge ? "text-bsh-amber" : "text-[#D4A373]"} />
+                <ShoppingBag size={22} className={isLounge ? "text-bsh-gold/90" : "text-[#E56B6F]"} />
               </div>
-              <p className="text-xl font-bold tracking-wide text-[#607D8B]">Coming Soon...</p>
-              <p className="mt-3 text-sm leading-relaxed text-[#4A4A4A]">
+              <p
+                className={
+                  isLounge
+                    ? "font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-xl font-semibold tracking-[0.08em] text-bsh-gold"
+                    : "text-xl font-bold tracking-wide text-[#607D8B]"
+                }
+              >
+                Coming Soon...
+              </p>
+              <p className={isLounge ? "mt-3 text-sm leading-relaxed text-bsh-ivory/85" : "mt-3 text-sm leading-relaxed text-[#4A4A4A]"}>
                 BSH専用の厳選ショップを準備中だニャ！
               </p>
             </div>
@@ -2423,18 +2794,38 @@ function BshRetroApp() {
         {/* DOODLE (ART GALLERY) */}
         {activeTab === "doodle" && (
           <div className="px-4">
-            <div className="mb-3 flex items-center justify-between rounded-2xl border-2 border-[#607D8B] bg-[#F4EEE2] px-3 py-2 shadow-[4px_4px_0_0_#D4A373]">
+            <div
+              className={
+                isLounge
+                  ? "mb-3 flex items-center justify-between rounded-[4px] border border-bsh-gold/40 bg-bsh-graphite/85 px-3 py-2 shadow-[0_12px_28px_-14px_rgba(107,31,46,0.45)]"
+                  : "mb-3 flex items-center justify-between rounded-2xl border-2 border-[#607D8B] bg-[#F4EEE2] px-3 py-2 shadow-[4px_4px_0_0_#D4A373]"
+              }
+            >
               <div>
-                <p className="text-[11px] font-bold tracking-wide text-[#607D8B]">DOODLE GALLERY</p>
-                <p className="text-[10px] text-[#6C5A49]">みんなの猫イラストを飾ろう</p>
+                <p
+                  className={
+                    isLounge
+                      ? "font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-[11px] font-semibold tracking-[0.14em] text-bsh-gold"
+                      : "text-[11px] font-bold tracking-wide text-[#607D8B]"
+                  }
+                >
+                  DOODLE GALLERY
+                </p>
+                <p className={isLounge ? "text-[10px] text-bsh-ivory/70" : "text-[10px] text-[#6C5A49]"}>
+                  みんなの猫イラストを飾ろう
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsComposerOpen(true)}
-                className="flex items-center gap-1 rounded-full border border-[#607D8B] bg-white px-2.5 py-1 text-[10px] font-bold text-[#607D8B] transition-transform active:scale-95"
+                className={
+                  isLounge
+                    ? "flex items-center gap-1 rounded-full border border-bsh-bordeaux bg-transparent px-2.5 py-1 text-[10px] font-semibold text-bsh-gold transition-opacity duration-300 ease-out active:opacity-80"
+                    : "flex items-center gap-1 rounded-full border border-[#607D8B] bg-white px-2.5 py-1 text-[10px] font-bold text-[#607D8B] transition-transform active:scale-95"
+                }
                 aria-label="落書きを投稿"
               >
-                <PlusCircle size={13} />
+                <PlusCircle size={13} className={isLounge ? "text-bsh-gold" : undefined} />
                 投稿
               </button>
             </div>
@@ -2443,37 +2834,89 @@ function BshRetroApp() {
               {doodlePosts.map((post, idx) => (
                 <article
                   key={post.id}
-                  className={`rounded-[14px] border border-[#4A4A4A] bg-[#EADBC8] p-1.5 shadow-[5px_5px_0_0_rgba(74,74,74,0.35)] ${
-                    idx % 2 === 0 ? "-rotate-[0.8deg]" : "rotate-[0.8deg]"
-                  }`}
+                  className={
+                    isLounge
+                      ? `bsh-lounge-card bsh-lounge-card-surface rounded-[4px] p-1 shadow-[0_14px_30px_-12px_rgba(107,31,46,0.5)] ${idx % 2 === 0 ? "-rotate-[0.5deg]" : "rotate-[0.5deg]"}`
+                      : `rounded-[14px] border border-[#4A4A4A] bg-[#EADBC8] p-1.5 shadow-[5px_5px_0_0_rgba(74,74,74,0.35)] ${
+                          idx % 2 === 0 ? "-rotate-[0.8deg]" : "rotate-[0.8deg]"
+                        }`
+                  }
                 >
-                  <div className="overflow-hidden rounded-[10px] border-2 border-[#4A4A4A] bg-[#FFFDF8]">
+                  <div
+                    className={
+                      isLounge
+                        ? "overflow-hidden rounded-[3px] border border-bsh-gold/35 bg-bsh-graphite/90"
+                        : "overflow-hidden rounded-[10px] border-2 border-[#4A4A4A] bg-[#FFFDF8]"
+                    }
+                  >
                     <img
                       src={post.image}
                       alt={`${post.user}の落書き`}
-                      className="h-72 w-full border-b-2 border-[#4A4A4A] object-cover"
+                      className={
+                        isLounge
+                          ? "h-72 w-full border-b border-bsh-gold/25 object-cover"
+                          : "h-72 w-full border-b-2 border-[#4A4A4A] object-cover"
+                      }
                     />
-                    <div className="space-y-0.5 bg-[repeating-linear-gradient(0deg,#FFFDF8,#FFFDF8_18px,#F4EEE2_19px)] px-1.5 py-1">
+                    <div
+                      className={
+                        isLounge
+                          ? "space-y-0.5 bg-gradient-to-b from-bsh-graphite to-bsh-noir/80 px-1.5 py-1"
+                          : "space-y-0.5 bg-[repeating-linear-gradient(0deg,#FFFDF8,#FFFDF8_18px,#F4EEE2_19px)] px-1.5 py-1"
+                      }
+                    >
                       <div className="flex items-center justify-between gap-1.5">
                         <div className="flex min-w-0 items-center gap-1">
                           <PawAvatar size="sm" />
-                          <p className="truncate text-[8px] font-bold text-[#607D8B] leading-none">
+                          <p
+                            className={
+                              isLounge
+                                ? "truncate text-[8px] font-semibold leading-none text-bsh-ivory"
+                                : "truncate text-[8px] font-bold leading-none text-[#607D8B]"
+                            }
+                          >
                             {post.user}
-                            <span className="ml-0.5 text-[6px] font-normal text-[#6C5A49]">[ID: {post.anonId}]</span>
+                            <span
+                              className={
+                                isLounge
+                                  ? "ml-0.5 text-[6px] font-normal text-bsh-gold/75"
+                                  : "ml-0.5 text-[6px] font-normal text-[#6C5A49]"
+                              }
+                            >
+                              [ID: {post.anonId}]
+                            </span>
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeDoodlePost(post.id)}
-                          className="h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                          className={
+                            isLounge
+                              ? "h-4 w-4 shrink-0 rounded-full border border-bsh-gold/28 text-[10px] leading-none text-bsh-ivory/70 transition-colors duration-300 ease-out hover:bg-white/5"
+                              : "h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/35 text-[10px] leading-none text-[#607D8B]/70 transition-colors hover:bg-[#607D8B]/10"
+                          }
                           aria-label="落書き投稿を削除"
                         >
                           ×
                         </button>
                       </div>
-                      <p className="text-[6px] leading-none text-[#7B6B5E]">{formatDoodleTime(post.createdAt)}</p>
-                      <p className="line-clamp-1 text-[7px] leading-snug text-[#4A4A4A]">{post.content}</p>
-                      <div className="mt-1 flex items-center gap-2 text-[#C08C5A]">
+                      <p className={isLounge ? "text-[6px] leading-none text-bsh-amber/85" : "text-[6px] leading-none text-[#7B6B5E]"}>
+                        {formatDoodleTime(post.createdAt)}
+                      </p>
+                      <p
+                        className={
+                          isLounge
+                            ? "line-clamp-1 text-[7px] leading-snug text-bsh-ivory/92"
+                            : "line-clamp-1 text-[7px] leading-snug text-[#4A4A4A]"
+                        }
+                      >
+                        {post.content}
+                      </p>
+                      <div
+                        className={
+                          isLounge ? "mt-1 flex items-center gap-2 text-bsh-ivory/80" : "mt-1 flex items-center gap-2 text-[#C08C5A]"
+                        }
+                      >
                         <button
                           type="button"
                           onClick={(e) => {
@@ -2481,19 +2924,41 @@ function BshRetroApp() {
                             e.stopPropagation();
                             void toggleDoodleLike(post.id);
                           }}
-                          className="flex items-center gap-1 transition-transform hover:scale-105 active:scale-95"
+                          className={
+                            isLounge
+                              ? "flex items-center gap-1 transition-opacity duration-300 ease-out active:opacity-75"
+                              : "flex items-center gap-1 transition-transform hover:scale-105 active:scale-95"
+                          }
                           aria-label="落書きにいいね"
                         >
                           <Heart
                             size={12}
-                            className={doodleLiked[post.id] ? "text-red-500 fill-red-500" : ""}
+                            className={
+                              doodleLiked[post.id]
+                                ? isLounge
+                                  ? "fill-bsh-bordeaux text-bsh-bordeaux"
+                                  : "fill-red-500 text-red-500"
+                                : isLounge
+                                  ? "text-bsh-ivory/85"
+                                  : ""
+                            }
                           />
-                          <span className="text-[7px] font-bold">{doodleLikeCounts[post.id] ?? post.likes ?? 0}</span>
+                          <span
+                            className={
+                              isLounge ? "text-[7px] font-semibold text-bsh-amber/85" : "text-[7px] font-bold"
+                            }
+                          >
+                            {doodleLikeCounts[post.id] ?? post.likes ?? 0}
+                          </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => openDoodleCommentModal(post.id)}
-                          className="transition-transform hover:scale-105 active:scale-95"
+                          className={
+                            isLounge
+                              ? "transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
+                              : "transition-transform hover:scale-105 active:scale-95"
+                          }
                           aria-label="落書きにコメント"
                         >
                           <MessageCircle size={12} />
@@ -2501,21 +2966,58 @@ function BshRetroApp() {
                         <button
                           type="button"
                           onClick={() => shareBshPost(setToastMessage)}
-                          className="transition-transform hover:scale-105 active:scale-95"
+                          className={
+                            isLounge
+                              ? "transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
+                              : "transition-transform hover:scale-105 active:scale-95"
+                          }
                           aria-label="落書きをシェア"
                         >
                           <Send size={12} />
                         </button>
                       </div>
                       {(doodleComments[post.id]?.length ?? 0) > 0 && (
-                        <div className="mt-1 space-y-0.5 border-t border-[#D4A373]/35 pt-1">
+                        <div
+                          className={
+                            isLounge
+                              ? "mt-1 space-y-0.5 border-t border-bsh-gold/22 pt-1"
+                              : "mt-1 space-y-0.5 border-t border-[#D4A373]/35 pt-1"
+                          }
+                        >
                           {doodleComments[post.id].map((comment) => (
-                            <div key={comment.id} className="ml-1.5 rounded-md bg-[#FFF8EE] px-1.5 py-0.5">
-                              <p className="text-[6px] font-bold leading-none text-[#607D8B]">{comment.user}</p>
-                              <p className="text-[6px] leading-none text-[#7D7D7D]">
+                            <div
+                              key={comment.id}
+                              className={
+                                isLounge
+                                  ? "ml-1.5 rounded-[4px] border border-bsh-gold/18 bg-bsh-noir/50 px-1.5 py-0.5"
+                                  : "ml-1.5 rounded-md bg-[#FFF8EE] px-1.5 py-0.5"
+                              }
+                            >
+                              <p
+                                className={
+                                  isLounge
+                                    ? "text-[6px] font-semibold leading-none text-bsh-ivory"
+                                    : "text-[6px] font-bold leading-none text-[#607D8B]"
+                                }
+                              >
+                                {comment.user}
+                              </p>
+                              <p
+                                className={
+                                  isLounge ? "text-[6px] leading-none text-bsh-amber/80" : "text-[6px] leading-none text-[#7D7D7D]"
+                                }
+                              >
                                 {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                               </p>
-                              <p className="text-[6px] leading-tight text-[#4A4A4A]">{comment.text}</p>
+                              <p
+                                className={
+                                  isLounge
+                                    ? "text-[6px] leading-tight text-bsh-ivory/90"
+                                    : "text-[6px] leading-tight text-[#4A4A4A]"
+                                }
+                              >
+                                {comment.text}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -3133,7 +3635,8 @@ function BshRetroApp() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </BshVariantProvider>
   );
 }
 
