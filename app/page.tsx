@@ -1868,7 +1868,7 @@ function BshRetroApp() {
   }, [selectedStoryIndex, selectedStory]);
 
   return (
-    <div className="relative z-0 max-w-md mx-auto min-h-screen bg-[#FAF9F6] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] font-['Zen_Maru_Gothic',sans-serif] text-[#4A4A4A] shadow-2xl">
+    <div className="relative z-0 mx-auto min-h-screen max-w-md bg-[#FAF9F6] pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] font-['Zen_Maru_Gothic',sans-serif] text-[#4A4A4A] shadow-2xl">
       {/* 共通スタイル（丸ゴシック） */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap');
@@ -1980,7 +1980,7 @@ function BshRetroApp() {
       >
         <div
           ref={storyStripRef}
-          className="flex touch-pan-x cursor-grab gap-4 overflow-x-auto overscroll-x-contain pb-1 select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
+          className="flex cursor-grab gap-4 overflow-x-auto overscroll-x-contain pb-1 select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [touch-action:pan-x_pan-y] active:cursor-grabbing"
           style={{ WebkitOverflowScrolling: "touch" }}
           onMouseDown={startStoryStripDrag}
           onMouseMove={moveStoryStripDrag}
@@ -2047,7 +2047,7 @@ function BshRetroApp() {
         </div>
       </section>
 
-      <main className="px-0 pb-8 pt-3">
+      <main className="px-0 pb-12 pt-3">
         {/* SNS FEED */}
         {activeTab === 'sns' && feedPosts.map(post => (
           <div key={post.id} className="bg-white border-y-2 border-[#4A4A4A] mb-5 shadow-[0_6px_0_0_rgba(212,163,115,0.35)] overflow-hidden">
@@ -2086,7 +2086,7 @@ function BshRetroApp() {
                     ref={(node) => {
                       feedCarouselRefs.current[post.id] = node;
                     }}
-                    className="flex touch-pan-x cursor-grab overflow-x-auto overscroll-x-contain snap-x snap-mandatory select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
+                    className="flex cursor-grab overflow-x-auto overscroll-x-contain snap-x snap-mandatory select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [touch-action:pan-x_pan-y] active:cursor-grabbing"
                     style={{ WebkitOverflowScrolling: "touch" }}
                     onScroll={(e) => {
                       const target = e.currentTarget;
@@ -2116,7 +2116,7 @@ function BshRetroApp() {
                                 }
                               }
                         }
-                        className="relative h-[46vh] w-full shrink-0 snap-center"
+                        className="relative h-[46vh] w-full shrink-0 snap-center [touch-action:inherit]"
                         onClick={() => {
                           if (isVideoPost) return;
                           const t = feedCarouselScrollAtRef.current[post.id] ?? 0;

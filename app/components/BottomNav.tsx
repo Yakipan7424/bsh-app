@@ -27,20 +27,19 @@ export function BottomNav() {
 
   const iconInactive = "text-[#F5EFE6] opacity-60";
   const iconActive = "text-[#F6C177] opacity-100";
-  /** 親指で押しやすい最小タップ領域（約 44px） */
-  const tapTarget = "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center";
+  const tapTarget = "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center";
 
-  const iconSize = 24;
-  const centerIconSize = 26;
+  const iconSize = 19;
+  const centerIconSize = 20;
 
   return (
-    <footer className="pointer-events-none fixed bottom-0 left-1/2 z-40 w-[min(92%,24rem)] max-w-sm -translate-x-1/2 isolate pt-2 pb-[max(14px,env(safe-area-inset-bottom,0px))]">
+    <footer className="pointer-events-none fixed bottom-0 left-1/2 z-40 w-[min(89%,22rem)] max-w-sm -translate-x-1/2 isolate pt-0.5 pb-[max(7px,env(safe-area-inset-bottom,0px))]">
       {/*
         フッター全体は pointer-events-none。タップ可能なのは下の nav（pointer-events-auto）だけニャ。
         pb は丸みディスプレイ用 safe-area + 少し余白ニャ。
       */}
-      <nav className="pointer-events-auto relative flex min-h-[3.25rem] items-center justify-between rounded-full bg-[#607D8B] px-4 py-2.5 shadow-xl">
-        <div className="flex items-center gap-7">
+      <nav className="pointer-events-auto relative flex min-h-[2rem] items-center justify-between rounded-full bg-[#607D8B] px-2.5 py-0.5 shadow-xl">
+        <div className="flex items-center gap-4">
           <Link
             href="/"
             scroll={false}
@@ -68,13 +67,13 @@ export function BottomNav() {
         <Link
           href={createHref}
           scroll={false}
-          className="absolute left-1/2 top-1/2 z-20 flex min-h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#FAF9F6] bg-[#7A93A0] p-2 transition-all active:scale-95"
+          className="absolute left-1/2 top-1/2 z-20 flex min-h-9 min-w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#FAF9F6] bg-[#7A93A0] p-1 transition-all active:scale-95"
           aria-label="投稿を作成"
         >
           <PlusCircle size={centerIconSize} className="text-[#FAF9F6]" strokeWidth={2} />
         </Link>
 
-        <div className="flex items-center gap-7">
+        <div className="flex items-center gap-4">
           <Link
             href="/?tab=doodle"
             scroll={false}
