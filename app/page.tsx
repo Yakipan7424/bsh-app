@@ -4,12 +4,27 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Heart, MessageCircle, ShoppingBag, Send, PlusCircle, Plus, Globe, Star, Cat, PawPrint, Play, Type, Smile, Sticker, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { supabase } from "@/lib/supabase/client";
+import {
+  deleteSnsPost,
+  deleteSnsPostComment,
+  deleteSnsPostLike,
+  fetchSnsCommentsForPosts,
+  fetchSnsLikesForPosts,
+  insertSnsPost,
+  insertSnsPostComment,
+  insertSnsPostLike,
+  listSnsPosts,
+  parseSnsImagesUrls,
+  type SnsPostRow,
+  updateSnsPostLikeCount,
+} from "@/lib/supabase/sns-feed";
 
 // Google Fontsの 'Zen Maru Gothic' を適用するためのスタイル設定
 // ※実際には layout.tsx 等で読み込むのが理想ですが、まずは動かすためにここにスタイルを入れます。
+/** デモ投稿（Supabase の id と被らないよう負の値） */
 const POSTS = [
   {
-    id: 1,
+    id: -100001,
     user: "丸顔のBSH",
     content: "Today's roundness is 100%. 🐱",
     lang: "en",
@@ -20,7 +35,7 @@ const POSTS = [
     createdAt: "2026-05-08T19:25:00+09:00",
   },
   {
-    id: 2,
+    id: -100002,
     user: "ブルーの飼い主",
     content: "この毛並み、もはや絨毯。 #BSH",
     lang: "ja",
@@ -155,16 +170,10 @@ const INITIAL_THREADS: ThreadItem[] = [
   },
 ];
 
-const LS_FEED_POSTS = "bsh-times.feed-posts";
-const LS_FEED_COMMENTS = "bsh-times.feed-comments";
 const LS_THREAD_POSTS = "bsh-times.thread-posts";
 const LS_BROWSER_ANON_ID = "bsh-times.browser-anon-id";
-const LS_LIKED_POSTS = "bsh-times.liked-posts";
 const LS_LIKED_THREADS = "bsh-times.liked-threads";
-const LS_LIKED_DOODLES = "bsh-times.liked-doodles";
-const LS_FEED_LIKE_COUNTS = "bsh-times.feed-like-counts";
 const LS_THREAD_LIKE_COUNTS = "bsh-times.thread-like-counts";
-const LS_DOODLE_LIKE_COUNTS = "bsh-times.doodle-like-counts";
 const ANON_DEFAULT_NAME = "名無しのBSH";
 const ANON_NAME_CANDIDATES = [
   "丸顔のBSH",
@@ -200,6 +209,52 @@ const SNS_PAW_STAMP_BG = {
 
 const SUPABASE_GALLERY_BUCKET = "gallery-media";
 const SUPABASE_STORY_BUCKET = "story-media";
+
+/** `/object/public/{bucket}/{path...}` 形式の Storage URL からバケットとオブジェクトキーを取り出す */
+function parseSupabaseStoragePublicUrl(url: string): { bucket: string; objectPath: string } | null {
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+    if (!m) return null;
+    return { bucket: m[1], objectPath: m[2] };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * private バケットでも読めるよう署名付き URL を試す。失敗時は元 URL（public 想定）のまま。
+ * 同一セッション内は sessionStorage で短時間キャッシュして再読込の負荷を抑える。
+ */
+async function resolveStorageUrlForDisplay(url: string): Promise<string> {
+  if (!url || typeof url !== "string") return url;
+  const parsed = parseSupabaseStoragePublicUrl(url);
+  if (!parsed) return url;
+
+  const cacheKey = `bsh-storage-sign:${parsed.bucket}:${parsed.objectPath}`;
+  const ttlMs = 5 * 60 * 60 * 1000; // 署名は最大6h想定で、5hでキャッシュ切れ扱い
+  try {
+    const raw = sessionStorage.getItem(cacheKey);
+    if (raw) {
+      const { signedUrl, exp } = JSON.parse(raw) as { signedUrl: string; exp: number };
+      if (typeof signedUrl === "string" && typeof exp === "number" && Date.now() < exp - 60_000) {
+        return signedUrl;
+      }
+    }
+  } catch {
+    /* 壊れたキャッシュは無視 */
+  }
+
+  const { data, error } = await supabase.storage.from(parsed.bucket).createSignedUrl(parsed.objectPath, 60 * 60 * 6);
+  if (error || !data?.signedUrl) return url;
+
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({ signedUrl: data.signedUrl, exp: Date.now() + ttlMs }));
+  } catch {
+    /* 容量超過など */
+  }
+  return data.signedUrl;
+}
 
 type GalleryRow = {
   id: number;
@@ -395,6 +450,23 @@ function mapStoryRowToStoryItem(row: StoryRow): StoryItem {
   };
 }
 
+function mapSnsRowToFeedPost(row: SnsPostRow, resolvedImage: string, resolvedCarousel?: string[]): FeedPost {
+  const imgs = resolvedCarousel && resolvedCarousel.length > 1 ? resolvedCarousel : undefined;
+  return {
+    id: row.id,
+    user: row.user_name,
+    content: row.content,
+    lang: row.lang,
+    translated: row.translated,
+    likes: row.likes_count,
+    image: resolvedImage,
+    images: imgs,
+    mediaType: row.media_type === "video" ? "video" : undefined,
+    anonId: row.anon_id,
+    createdAt: row.created_at,
+  };
+}
+
 function mapGalleryCommentRowToThreadComment(row: GalleryCommentRow): ThreadComment {
   return {
     id: row.id,
@@ -490,6 +562,8 @@ function BshRetroApp() {
     | { layerId: number; mode: "gesture"; startDist: number; startAngle: number; startScale: number; startRotation: number; centerStartX: number; centerStartY: number; baseX: number; baseY: number }
     | null
   >(null);
+  /** loadFromSupabase の多重起動時、古いレスポンスで state を上書きしない */
+  const loadGenerationRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -548,13 +622,44 @@ function BshRetroApp() {
     });
   }, []);
 
-  const togglePostLike = (id: number) => {
-    const nextLiked = !likedPosts[id];
-    setLikedPosts((prev) => ({ ...prev, [id]: nextLiked }));
-    setFeedLikeCounts((prev) => ({
-      ...prev,
-      [id]: Math.max(0, (prev[id] ?? feedPosts.find((p) => p.id === id)?.likes ?? 0) + (nextLiked ? 1 : -1)),
-    }));
+  const togglePostLike = async (id: number) => {
+    if (id < 0) {
+      const nextLiked = !likedPosts[id];
+      setLikedPosts((prev) => ({ ...prev, [id]: nextLiked }));
+      setFeedLikeCounts((prev) => ({
+        ...prev,
+        [id]: Math.max(0, (prev[id] ?? feedPosts.find((p) => p.id === id)?.likes ?? 0) + (nextLiked ? 1 : -1)),
+      }));
+      return;
+    }
+
+    const currentlyLiked = !!likedPosts[id];
+    const currentCount = feedLikeCounts[id] ?? feedPosts.find((p) => p.id === id)?.likes ?? 0;
+    const targetCount = Math.max(0, currentCount + (currentlyLiked ? -1 : 1));
+
+    setLikedPosts((prev) => ({ ...prev, [id]: !currentlyLiked }));
+    setFeedLikeCounts((prev) => ({ ...prev, [id]: targetCount }));
+
+    try {
+      if (!currentlyLiked) {
+        const likeInsert = await insertSnsPostLike(supabase, id, browserAnonId);
+        if (likeInsert.error) throw likeInsert.error;
+      } else {
+        const likeDelete = await deleteSnsPostLike(supabase, id, browserAnonId);
+        if (likeDelete.error) throw likeDelete.error;
+      }
+
+      const updateRes = await updateSnsPostLikeCount(supabase, id, targetCount);
+      if (updateRes.error) throw updateRes.error;
+
+      setFeedPosts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, likes: targetCount } : p)),
+      );
+    } catch {
+      setLikedPosts((prev) => ({ ...prev, [id]: currentlyLiked }));
+      setFeedLikeCounts((prev) => ({ ...prev, [id]: currentCount }));
+      setToastMessage("いいね保存に失敗したニャ...");
+    }
   };
 
   const handleStoryClick = (index: number) => {
@@ -615,39 +720,9 @@ function BshRetroApp() {
     return () => window.removeEventListener("bsh:scroll-home", onScrollHome);
   }, [scrollToHomeAnchor]);
 
-  /** 起動時: localStorage から投稿を復允E*/
+  /** 起動時: NYAT スレッド等を localStorage から復元（ニャードは Supabase） */
   useEffect(() => {
     try {
-      const feedRaw = localStorage.getItem(LS_FEED_POSTS);
-      if (feedRaw !== null) {
-        const data = JSON.parse(feedRaw) as unknown;
-        if (Array.isArray(data)) {
-          setFeedPosts(data.filter(isPostRecord));
-        }
-      }
-      const feedCommentsRaw = localStorage.getItem(LS_FEED_COMMENTS);
-      if (feedCommentsRaw !== null) {
-        const data = JSON.parse(feedCommentsRaw) as unknown;
-        if (typeof data === "object" && data !== null) {
-          const next: Record<number, ThreadComment[]> = {};
-          Object.entries(data as Record<string, unknown>).forEach(([key, value]) => {
-            if (!Array.isArray(value)) return;
-            const parsed = value.filter((item) => {
-              if (typeof item !== "object" || item === null) return false;
-              const o = item as Record<string, unknown>;
-              return (
-                typeof o.id === "number" &&
-                typeof o.user === "string" &&
-                typeof o.text === "string" &&
-                (o.anonId === undefined || typeof o.anonId === "string") &&
-                (o.createdAt === undefined || typeof o.createdAt === "string")
-              );
-            }) as ThreadComment[];
-            next[Number(key)] = parsed;
-          });
-          setFeedComments(next);
-        }
-      }
       const threadRaw = localStorage.getItem(LS_THREAD_POSTS);
       if (threadRaw !== null) {
         const data = JSON.parse(threadRaw) as unknown;
@@ -655,17 +730,9 @@ function BshRetroApp() {
           setThreadPosts(data.filter(isThreadRecord));
         }
       }
-      const likedPostsRaw = localStorage.getItem(LS_LIKED_POSTS);
-      if (likedPostsRaw !== null) {
-        setLikedPosts(JSON.parse(likedPostsRaw) as Record<number, boolean>);
-      }
       const likedThreadsRaw = localStorage.getItem(LS_LIKED_THREADS);
       if (likedThreadsRaw !== null) {
         setLikedThreads(JSON.parse(likedThreadsRaw) as Record<number, boolean>);
-      }
-      const feedLikeCountsRaw = localStorage.getItem(LS_FEED_LIKE_COUNTS);
-      if (feedLikeCountsRaw !== null) {
-        setFeedLikeCounts(JSON.parse(feedLikeCountsRaw) as Record<number, number>);
       }
       const threadLikeCountsRaw = localStorage.getItem(LS_THREAD_LIKE_COUNTS);
       if (threadLikeCountsRaw !== null) {
@@ -678,82 +745,217 @@ function BshRetroApp() {
   }, []);
 
   const loadFromSupabase = useCallback(async () => {
-    const now = new Date().toISOString();
-    const [galleryRes, storiesRes] = await Promise.all([
-      supabase
-        .from("gallery_posts")
-        .select("id,user_name,anon_id,content,image_url,likes_count,created_at")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("stories")
-        .select("id,user_name,anon_id,media_url,media_type,created_at,expires_at")
-        .gt("expires_at", now)
-        .order("created_at", { ascending: false }),
-    ]);
+    const gen = ++loadGenerationRef.current;
+    const stale = () => gen !== loadGenerationRef.current;
 
-    if (!galleryRes.error && galleryRes.data) {
-      const rows = galleryRes.data as GalleryRow[];
-      setDoodlePosts(rows.map(mapGalleryRowToDoodlePost));
-      setDoodleLikeCounts(
-        rows.reduce<Record<number, number>>((acc, row) => {
-          acc[row.id] = row.likes_count ?? 0;
-          return acc;
-        }, {}),
-      );
-      const postIds = rows.map((row) => row.id);
-      if (postIds.length > 0) {
-        const [commentsRes, likesRes] = await Promise.all([
-          supabase
-            .from("gallery_post_comments")
-            .select("id,post_id,user_name,anon_id,text,created_at")
-            .in("post_id", postIds)
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("gallery_post_likes")
-            .select("post_id")
-            .eq("anon_id", browserAnonId)
-            .in("post_id", postIds),
-        ]);
+    try {
+      const now = new Date().toISOString();
+      const [galleryRes, storiesRes, snsRes] = await Promise.all([
+        supabase
+          .from("gallery_posts")
+          .select("id,user_name,anon_id,content,image_url,likes_count,created_at")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("stories")
+          .select("id,user_name,anon_id,media_url,media_type,created_at,expires_at")
+          .gt("expires_at", now)
+          .order("created_at", { ascending: false }),
+        listSnsPosts(supabase),
+      ]);
 
-        if (!commentsRes.error && commentsRes.data) {
-          const grouped = (commentsRes.data as GalleryCommentRow[]).reduce<Record<number, ThreadComment[]>>((acc, row) => {
-            const key = row.post_id;
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(mapGalleryCommentRowToThreadComment(row));
+      if (stale()) return;
+
+      if (!galleryRes.error && galleryRes.data != null) {
+        const rows = galleryRes.data as GalleryRow[];
+        const rowsForDisplay = await Promise.all(
+          rows.map(async (row) => ({
+            ...row,
+            image_url: await resolveStorageUrlForDisplay(row.image_url),
+          })),
+        );
+        if (stale()) return;
+
+        setDoodlePosts(rowsForDisplay.map(mapGalleryRowToDoodlePost));
+        setDoodleLikeCounts(
+          rowsForDisplay.reduce<Record<number, number>>((acc, row) => {
+            acc[row.id] = row.likes_count ?? 0;
             return acc;
-          }, {});
-          setDoodleComments(grouped);
-        } else if (commentsRes.error) {
-          setToastMessage("ギャラリーコメントの読込に失敗したニャ...");
-        }
+          }, {}),
+        );
+        const postIds = rowsForDisplay.map((row) => row.id);
+        if (postIds.length > 0) {
+          const [commentsRes, likesRes] = await Promise.all([
+            supabase
+              .from("gallery_post_comments")
+              .select("id,post_id,user_name,anon_id,text,created_at")
+              .in("post_id", postIds)
+              .order("created_at", { ascending: true }),
+            supabase
+              .from("gallery_post_likes")
+              .select("post_id")
+              .eq("anon_id", browserAnonId)
+              .in("post_id", postIds),
+          ]);
 
-        if (!likesRes.error && likesRes.data) {
-          const likedMap = (likesRes.data as Array<{ post_id: number }>).reduce<Record<number, boolean>>((acc, row) => {
-            acc[row.post_id] = true;
-            return acc;
-          }, {});
-          setDoodleLiked(likedMap);
-        } else if (likesRes.error) {
-          setToastMessage("いいね状態の読込に失敗したニャ...");
+          if (stale()) return;
+
+          if (!commentsRes.error && commentsRes.data) {
+            const grouped = (commentsRes.data as GalleryCommentRow[]).reduce<Record<number, ThreadComment[]>>((acc, row) => {
+              const key = row.post_id;
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(mapGalleryCommentRowToThreadComment(row));
+              return acc;
+            }, {});
+            setDoodleComments(grouped);
+          } else if (commentsRes.error) {
+            setToastMessage("ギャラリーコメントの読込に失敗したニャ...");
+          }
+
+          if (!likesRes.error && likesRes.data) {
+            const likedMap = (likesRes.data as Array<{ post_id: number }>).reduce<Record<number, boolean>>((acc, row) => {
+              acc[row.post_id] = true;
+              return acc;
+            }, {});
+            setDoodleLiked(likedMap);
+          } else if (likesRes.error) {
+            setToastMessage("いいね状態の読込に失敗したニャ...");
+          }
+        } else {
+          setDoodleComments({});
+          setDoodleLiked({});
         }
-      } else {
-        setDoodleComments({});
-        setDoodleLiked({});
+      } else if (galleryRes.error) {
+        setToastMessage("ギャラリーの読込に失敗したニャ...");
       }
-    } else if (galleryRes.error) {
-      setToastMessage("ギャラリーの読込に失敗したニャ...");
-    }
 
-    if (!storiesRes.error && storiesRes.data) {
-      const rows = storiesRes.data as StoryRow[];
-      setStories(rows.map(mapStoryRowToStoryItem));
-    } else if (storiesRes.error) {
-      setToastMessage("ストーリーの読込に失敗したニャ...");
+      if (stale()) return;
+
+      if (!storiesRes.error && storiesRes.data != null) {
+        const sRows = storiesRes.data as StoryRow[];
+        const storiesForDisplay = await Promise.all(
+          sRows.map(async (row) => ({
+            ...row,
+            media_url: await resolveStorageUrlForDisplay(row.media_url),
+          })),
+        );
+        if (stale()) return;
+        setStories(storiesForDisplay.map(mapStoryRowToStoryItem));
+      } else if (storiesRes.error) {
+        setToastMessage("ストーリーの読込に失敗したニャ...");
+      }
+
+      if (stale()) return;
+
+      if (!snsRes.error && snsRes.data != null) {
+        const snsRows = snsRes.data as SnsPostRow[];
+        const rowsForDisplay = await Promise.all(
+          snsRows.map(async (row) => {
+            const multi = parseSnsImagesUrls(row.images_urls);
+            if (multi.length >= 2) {
+              const resolved = await Promise.all(multi.map((u) => resolveStorageUrlForDisplay(u)));
+              return mapSnsRowToFeedPost(row, resolved[0], resolved);
+            }
+            const primary = await resolveStorageUrlForDisplay(row.image_url);
+            return mapSnsRowToFeedPost(row, primary);
+          }),
+        );
+        if (stale()) return;
+
+        const snsIds = rowsForDisplay.map((p) => p.id);
+        let snsCommentsGrouped: Record<number, ThreadComment[]> = {};
+        let snsLikedMap: Record<number, boolean> = {};
+
+        if (snsIds.length > 0) {
+          const [snsCommentsRes, snsLikesRes] = await Promise.all([
+            fetchSnsCommentsForPosts(supabase, snsIds),
+            fetchSnsLikesForPosts(supabase, browserAnonId, snsIds),
+          ]);
+
+          if (stale()) return;
+
+          if (!snsCommentsRes.error && snsCommentsRes.data) {
+            snsCommentsGrouped = (snsCommentsRes.data as GalleryCommentRow[]).reduce<Record<number, ThreadComment[]>>((acc, row) => {
+              const key = row.post_id;
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(mapGalleryCommentRowToThreadComment(row));
+              return acc;
+            }, {});
+          } else if (snsCommentsRes.error) {
+            setToastMessage("ニャードのコメント読込に失敗したニャ...");
+          }
+
+          if (!snsLikesRes.error && snsLikesRes.data) {
+            snsLikedMap = (snsLikesRes.data as Array<{ post_id: number }>).reduce<Record<number, boolean>>((acc, row) => {
+              acc[row.post_id] = true;
+              return acc;
+            }, {});
+          } else if (snsLikesRes.error) {
+            setToastMessage("ニャードのいいね状態の読込に失敗したニャ...");
+          }
+        }
+
+        setFeedPosts([...rowsForDisplay, ...POSTS]);
+
+        setFeedComments((prev) => {
+          const next: Record<number, ThreadComment[]> = {};
+          for (const [k, v] of Object.entries(prev)) {
+            const num = Number(k);
+            if (num < 0 && Array.isArray(v)) next[num] = v;
+          }
+          snsIds.forEach((id) => {
+            next[id] = snsCommentsGrouped[id] ?? [];
+          });
+          return next;
+        });
+
+        setLikedPosts((prev) => {
+          const next: Record<number, boolean> = {};
+          for (const [k, v] of Object.entries(prev)) {
+            const num = Number(k);
+            if (num < 0 && v) next[num] = true;
+          }
+          snsIds.forEach((id) => {
+            next[id] = !!snsLikedMap[id];
+          });
+          return next;
+        });
+
+        setFeedLikeCounts((prev) => {
+          const next = { ...prev };
+          rowsForDisplay.forEach((p) => {
+            next[p.id] = p.likes ?? 0;
+          });
+          return next;
+        });
+      } else if (snsRes.error) {
+        const code = (snsRes.error as { code?: string }).code;
+        const msg = snsRes.error.message ?? "";
+        if (code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache")) {
+          setToastMessage("ニャード用テーブルが無いニャ…Supabase で sns_feed.sql を実行してほしいニャ");
+        } else {
+          setToastMessage("ニャードの読込に失敗したニャ...");
+        }
+      }
+    } catch {
+      if (!stale()) {
+        setToastMessage("サーバーとの同期に失敗したニャ…（通信を確認してほしいニャ）");
+      }
     }
   }, [browserAnonId]);
 
   useEffect(() => {
     void loadFromSupabase();
+  }, [loadFromSupabase]);
+
+  /** タブを閉じたりバックグラウンドに長く置いたあと、再表示時に Supabase へ取りにいく */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadFromSupabase();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadFromSupabase]);
 
   useEffect(() => {
@@ -771,31 +973,21 @@ function BshRetroApp() {
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
         void loadFromSupabase();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sns_posts" }, () => {
+        void loadFromSupabase();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sns_post_comments" }, () => {
+        void loadFromSupabase();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sns_post_likes" }, () => {
+        void loadFromSupabase();
+      })
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [browserAnonId, loadFromSupabase]);
-
-  /** フィード投稿の変更めElocalStorage へ保孁E*/
-  useEffect(() => {
-    if (!storageReady) return;
-    try {
-      localStorage.setItem(LS_FEED_POSTS, JSON.stringify(feedPosts));
-    } catch {
-      /* 容量超過など */
-    }
-  }, [feedPosts, storageReady]);
-
-  useEffect(() => {
-    if (!storageReady) return;
-    try {
-      localStorage.setItem(LS_FEED_COMMENTS, JSON.stringify(feedComments));
-    } catch {
-      /* 容量超過など */
-    }
-  }, [feedComments, storageReady]);
 
   /** スレッド投稿の変更を localStorage へ保存 */
   useEffect(() => {
@@ -810,14 +1002,12 @@ function BshRetroApp() {
   useEffect(() => {
     if (!storageReady) return;
     try {
-      localStorage.setItem(LS_LIKED_POSTS, JSON.stringify(likedPosts));
       localStorage.setItem(LS_LIKED_THREADS, JSON.stringify(likedThreads));
-      localStorage.setItem(LS_FEED_LIKE_COUNTS, JSON.stringify(feedLikeCounts));
       localStorage.setItem(LS_THREAD_LIKE_COUNTS, JSON.stringify(threadLikeCounts));
     } catch {
       /* 容量超過など */
     }
-  }, [likedPosts, likedThreads, feedLikeCounts, threadLikeCounts, storageReady]);
+  }, [likedThreads, threadLikeCounts, storageReady]);
 
   const submitPost = async () => {
     try {
@@ -825,20 +1015,6 @@ function BshRetroApp() {
       if (!message) return;
       const anonName = getRandomAnonName();
       const selectedImages = newPostImages.slice(0, 4);
-      const firstImage = selectedImages[0] ?? "https://images.unsplash.com/photo-1513245543132-31f507417b26";
-
-      const newPost: FeedPost = {
-        id: Date.now(),
-        user: anonName,
-        content: message,
-        lang: "ja",
-        translated: message,
-        likes: 0,
-        image: firstImage,
-        images: selectedImages.length > 0 ? selectedImages : undefined,
-        anonId: browserAnonId,
-        createdAt: new Date().toISOString(),
-      };
 
       if (activeTab === "doodle") {
         const firstFile = newPostImageFiles[0];
@@ -875,7 +1051,61 @@ function BshRetroApp() {
         const row = insertRes.data as GalleryRow;
         setDoodlePosts((prev) => [mapGalleryRowToDoodlePost(row), ...prev]);
       } else {
-        setFeedPosts((prev) => [newPost, ...prev]);
+        const fallbackImg = "https://images.unsplash.com/photo-1513245543132-31f507417b26";
+        const uploadedUrls: string[] = [];
+        for (let i = 0; i < newPostImageFiles.length; i++) {
+          const file = newPostImageFiles[i];
+          const ext = getFileExtension(file.name, file.type);
+          const path = `sns/${browserAnonId}/${Date.now()}-${i}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+          const uploadRes = await supabase.storage.from(SUPABASE_GALLERY_BUCKET).upload(path, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+          if (uploadRes.error) {
+            setToastMessage("画像アップロードに失敗したニャ...");
+            return;
+          }
+          const { data: pub } = supabase.storage.from(SUPABASE_GALLERY_BUCKET).getPublicUrl(path);
+          uploadedUrls.push(pub.publicUrl);
+        }
+
+        const primaryFromPreview =
+          selectedImages.length > 0 ? selectedImages[0] : undefined;
+        const primary = uploadedUrls[0] ?? primaryFromPreview ?? fallbackImg;
+        const imagesUrlsPayload = uploadedUrls.length >= 2 ? uploadedUrls : [];
+
+        const insertRes = await insertSnsPost(supabase, {
+          user_name: anonName,
+          anon_id: browserAnonId,
+          content: message,
+          lang: "ja",
+          translated: message,
+          image_url: primary,
+          images_urls: imagesUrlsPayload,
+          media_type: "image",
+          likes_count: 0,
+        });
+
+        if (insertRes.error || !insertRes.data) {
+          setToastMessage("ニャード投稿の保存に失敗したニャ...");
+          return;
+        }
+
+        const row = insertRes.data as SnsPostRow;
+        const multi = parseSnsImagesUrls(row.images_urls);
+        let displayImage: string;
+        let displayCarousel: string[] | undefined;
+        if (multi.length >= 2) {
+          const resolved = await Promise.all(multi.map((u) => resolveStorageUrlForDisplay(u)));
+          displayImage = resolved[0];
+          displayCarousel = resolved;
+        } else {
+          displayImage = await resolveStorageUrlForDisplay(row.image_url);
+          displayCarousel = undefined;
+        }
+
+        const mapped = mapSnsRowToFeedPost(row, displayImage, displayCarousel);
+        setFeedPosts((prev) => [mapped, ...prev.filter((p) => p.id !== mapped.id)]);
       }
       setNewPostMessage("");
       setNewPostImages([]);
@@ -916,7 +1146,32 @@ function BshRetroApp() {
     }));
   };
 
-  const removeFeedPost = (id: number) => {
+  const removeFeedPost = async (id: number) => {
+    if (id < 0) {
+      setFeedPosts((prev) => prev.filter((post) => post.id !== id));
+      setLikedPosts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setFeedLikeCounts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setFeedComments((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+
+    const prevPosts = feedPosts;
+    const prevLiked = likedPosts;
+    const prevCounts = feedLikeCounts;
+    const prevComments = feedComments;
+
     setFeedPosts((prev) => prev.filter((post) => post.id !== id));
     setLikedPosts((prev) => {
       const next = { ...prev };
@@ -933,18 +1188,50 @@ function BshRetroApp() {
       delete next[id];
       return next;
     });
+
+    const { error } = await deleteSnsPost(supabase, id);
+    if (error) {
+      setFeedPosts(prevPosts);
+      setLikedPosts(prevLiked);
+      setFeedLikeCounts(prevCounts);
+      setFeedComments(prevComments);
+      setToastMessage("投稿の削除に失敗したニャ...");
+    }
   };
 
-  const submitFeedComment = (postId: number) => {
+  const submitFeedComment = async (postId: number) => {
     const text = newFeedCommentText.trim();
     if (!text) return;
-    const item: ThreadComment = {
-      id: Date.now(),
-      user: "@名無しのBSH",
+
+    if (postId < 0) {
+      const item: ThreadComment = {
+        id: Date.now(),
+        user: "@名無しのBSH",
+        text,
+        anonId: browserAnonId,
+        createdAt: new Date().toISOString(),
+      };
+      setFeedComments((prev) => {
+        const existing = prev[postId] ?? [];
+        return { ...prev, [postId]: [...existing, item] };
+      });
+      setNewFeedCommentText("");
+      return;
+    }
+
+    const insertRes = await insertSnsPostComment(supabase, {
+      post_id: postId,
+      user_name: "@名無しのBSH",
+      anon_id: browserAnonId,
       text,
-      anonId: browserAnonId,
-      createdAt: new Date().toISOString(),
-    };
+    });
+
+    if (insertRes.error || !insertRes.data) {
+      setToastMessage("コメントの保存に失敗したニャ...");
+      return;
+    }
+
+    const item = mapGalleryCommentRowToThreadComment(insertRes.data as GalleryCommentRow);
     setFeedComments((prev) => {
       const existing = prev[postId] ?? [];
       return { ...prev, [postId]: [...existing, item] };
@@ -952,11 +1239,26 @@ function BshRetroApp() {
     setNewFeedCommentText("");
   };
 
-  const removeFeedComment = (postId: number, commentId: number) => {
-    setFeedComments((prev) => {
-      const existing = prev[postId] ?? [];
-      return { ...prev, [postId]: existing.filter((comment) => comment.id !== commentId) };
+  const removeFeedComment = async (postId: number, commentId: number) => {
+    if (postId < 0) {
+      setFeedComments((prev) => {
+        const existing = prev[postId] ?? [];
+        return { ...prev, [postId]: existing.filter((comment) => comment.id !== commentId) };
+      });
+      return;
+    }
+
+    const prevComments = feedComments;
+    setFeedComments((prevMap) => {
+      const existing = prevMap[postId] ?? [];
+      return { ...prevMap, [postId]: existing.filter((comment) => comment.id !== commentId) };
     });
+
+    const { error } = await deleteSnsPostComment(supabase, postId, commentId);
+    if (error) {
+      setFeedComments(prevComments);
+      setToastMessage("コメント削除に失敗したニャ...");
+    }
   };
 
   const removeThreadPost = (id: number) => {
