@@ -534,6 +534,8 @@ function BshRetroApp() {
   const [browserAnonId, setBrowserAnonId] = useState("GUEST0000");
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  /** ニャード写真タップで拡大（スマホで「反応しない」対策） */
+  const [feedLightboxSrc, setFeedLightboxSrc] = useState<string | null>(null);
   const [doodleLiked, setDoodleLiked] = useState<Record<number, boolean>>({});
   const [doodleLikeCounts, setDoodleLikeCounts] = useState<Record<number, number>>({});
   const [doodleComments, setDoodleComments] = useState<Record<number, ThreadComment[]>>({});
@@ -546,6 +548,8 @@ function BshRetroApp() {
     startX: 0,
     startScrollLeft: 0,
   });
+  /** タップとスワイプの区別（ライトボックス誤爆防止） */
+  const feedSlideTapRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const storyDragStateRef = useRef<{ startX: number | null; dragged: boolean }>({ startX: null, dragged: false });
   const storyStripRef = useRef<HTMLDivElement | null>(null);
   const storyStripDragRef = useRef({ isDragging: false, startX: 0, startScrollLeft: 0 });
@@ -585,6 +589,15 @@ function BshRetroApp() {
     const timer = window.setTimeout(() => setToastMessage(""), 1800);
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
+
+  useEffect(() => {
+    if (feedLightboxSrc === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFeedLightboxSrc(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [feedLightboxSrc]);
 
   useEffect(() => {
     setFeedLikeCounts((prev) => {
@@ -1216,6 +1229,7 @@ function BshRetroApp() {
         return { ...prev, [postId]: [...existing, item] };
       });
       setNewFeedCommentText("");
+      setFeedCommentTargetId(null);
       return;
     }
 
@@ -1237,6 +1251,7 @@ function BshRetroApp() {
       return { ...prev, [postId]: [...existing, item] };
     });
     setNewFeedCommentText("");
+    setFeedCommentTargetId(null);
   };
 
   const removeFeedComment = async (postId: number, commentId: number) => {
@@ -1346,7 +1361,8 @@ function BshRetroApp() {
   };
 
   const submitDoodleComment = async () => {
-    if (doodleCommentTargetId === null) return;
+    const targetPostId = doodleCommentTargetId;
+    if (targetPostId === null) return;
     const text = newDoodleCommentText.trim();
     if (!text) return;
 
@@ -1361,7 +1377,7 @@ function BshRetroApp() {
     const insertRes = await supabase
       .from("gallery_post_comments")
       .insert({
-        post_id: doodleCommentTargetId,
+        post_id: targetPostId,
         user_name: item.user,
         anon_id: item.anonId ?? browserAnonId,
         text: item.text,
@@ -1376,10 +1392,10 @@ function BshRetroApp() {
 
     const saved = mapGalleryCommentRowToThreadComment(insertRes.data as GalleryCommentRow);
     setDoodleComments((prev) => {
-      const existing = prev[doodleCommentTargetId] ?? [];
+      const existing = prev[targetPostId] ?? [];
       return {
         ...prev,
-        [doodleCommentTargetId]: [...existing, saved],
+        [targetPostId]: [...existing, saved],
       };
     });
     setNewDoodleCommentText("");
@@ -1852,7 +1868,7 @@ function BshRetroApp() {
   }, [selectedStoryIndex, selectedStory]);
 
   return (
-    <div className="max-w-md mx-auto bg-[#FAF9F6] min-h-screen pb-24 shadow-2xl font-['Zen_Maru_Gothic',sans-serif] text-[#4A4A4A]">
+    <div className="relative z-0 max-w-md mx-auto min-h-screen bg-[#FAF9F6] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] font-['Zen_Maru_Gothic',sans-serif] text-[#4A4A4A] shadow-2xl">
       {/* 共通スタイル（丸ゴシック） */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap');
@@ -1964,7 +1980,8 @@ function BshRetroApp() {
       >
         <div
           ref={storyStripRef}
-          className="flex cursor-grab gap-4 overflow-x-auto pb-1 select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
+          className="flex touch-pan-x cursor-grab gap-4 overflow-x-auto overscroll-x-contain pb-1 select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
+          style={{ WebkitOverflowScrolling: "touch" }}
           onMouseDown={startStoryStripDrag}
           onMouseMove={moveStoryStripDrag}
           onMouseUp={endStoryStripDrag}
@@ -1977,7 +1994,7 @@ function BshRetroApp() {
               setIsThreadComposerOpen(false);
               setIsStoryComposerOpen(true);
             }}
-            className="flex flex-shrink-0 flex-col items-center pt-1 transition-transform active:scale-95"
+            className="touch-manipulation flex flex-shrink-0 flex-col items-center pt-1 transition-transform active:scale-95"
             aria-label="ストーリーを追加"
           >
             <span className="relative block h-11 w-11 shrink-0">
@@ -1997,8 +2014,9 @@ function BshRetroApp() {
           {visibleStories.map((story, idx) => (
             <button
               key={story.id}
+              type="button"
               onClick={() => handleStoryClick(idx)}
-              className="flex-shrink-0 flex flex-col items-center pt-1 group"
+              className="touch-manipulation flex-shrink-0 flex flex-col items-center pt-1 group"
               aria-label={`${story.name}のストーリー`}
             >
               <span
@@ -2029,7 +2047,7 @@ function BshRetroApp() {
         </div>
       </section>
 
-      <main className="px-0 pt-3 pb-24">
+      <main className="px-0 pb-8 pt-3">
         {/* SNS FEED */}
         {activeTab === 'sns' && feedPosts.map(post => (
           <div key={post.id} className="bg-white border-y-2 border-[#4A4A4A] mb-5 shadow-[0_6px_0_0_rgba(212,163,115,0.35)] overflow-hidden">
@@ -2063,12 +2081,13 @@ function BshRetroApp() {
               const activeIdx = Math.min(feedCarouselIndex[post.id] ?? 0, postImages.length - 1);
               const isVideoPost = post.mediaType === "video";
               return (
-                <div className="group relative border-b-2 border-[#4A4A4A]">
+                <div className="group relative z-0 border-b-2 border-[#4A4A4A]">
                   <div
                     ref={(node) => {
                       feedCarouselRefs.current[post.id] = node;
                     }}
-                    className="flex cursor-grab overflow-x-auto snap-x snap-mandatory select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
+                    className="flex touch-pan-x cursor-grab overflow-x-auto overscroll-x-contain snap-x snap-mandatory select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden active:cursor-grabbing"
+                    style={{ WebkitOverflowScrolling: "touch" }}
                     onScroll={(e) => {
                       if (postImages.length <= 1) return;
                       const target = e.currentTarget;
@@ -2081,11 +2100,30 @@ function BshRetroApp() {
                     onMouseLeave={endFeedDrag}
                   >
                     {postImages.map((src, idx) => (
-                      <div key={`${post.id}-${idx}`} className="relative h-[46vh] w-full shrink-0 snap-center">
+                      <div
+                        key={`${post.id}-${idx}`}
+                        className="relative h-[46vh] w-full shrink-0 snap-center touch-manipulation"
+                        onPointerDown={(e) => {
+                          if (e.isPrimary) {
+                            feedSlideTapRef.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+                          }
+                        }}
+                        onPointerUp={(e) => {
+                          const start = feedSlideTapRef.current;
+                          if (!start || e.pointerId !== start.pointerId) return;
+                          feedSlideTapRef.current = null;
+                          if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 20) return;
+                          if (!isVideoPost) setFeedLightboxSrc(src);
+                        }}
+                        onPointerCancel={() => {
+                          feedSlideTapRef.current = null;
+                        }}
+                      >
                         <img
                           src={src}
                           alt={`post image ${idx + 1}`}
-                          className="h-full w-full object-cover"
+                          draggable={false}
+                          className="pointer-events-none h-full w-full select-none object-cover [-webkit-touch-callout:none]"
                         />
                         {isVideoPost && (
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -2102,7 +2140,7 @@ function BshRetroApp() {
                       <button
                         type="button"
                         onClick={() => scrollFeedCarouselTo(post.id, Math.max(0, activeIdx - 1))}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 px-2 py-1 text-sm font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        className="touch-manipulation absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/35 px-2 py-1 text-sm font-bold text-white opacity-100 pointer-events-auto transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100"
                         aria-label="前の写真"
                       >
                         ＜
@@ -2110,19 +2148,22 @@ function BshRetroApp() {
                       <button
                         type="button"
                         onClick={() => scrollFeedCarouselTo(post.id, Math.min(postImages.length - 1, activeIdx + 1))}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/35 px-2 py-1 text-sm font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        className="touch-manipulation absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/35 px-2 py-1 text-sm font-bold text-white opacity-100 pointer-events-auto transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100"
                         aria-label="次の写真"
                       >
                         ＞
                       </button>
-                      <div className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white">
+                      <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white">
                         {activeIdx + 1}/{postImages.length}
                       </div>
-                      <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/25 px-2 py-1">
+                      <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/25 px-2 py-1">
                         {postImages.map((_, idx) => (
-                          <span
+                          <button
                             key={`${post.id}-dot-${idx}`}
-                            className={`h-1.5 w-1.5 rounded-full ${idx === activeIdx ? "bg-white" : "bg-white/45"}`}
+                            type="button"
+                            onClick={() => scrollFeedCarouselTo(post.id, idx)}
+                            className={`touch-manipulation h-2.5 w-2.5 shrink-0 rounded-full transition-transform active:scale-125 ${idx === activeIdx ? "bg-white" : "bg-white/45"}`}
+                            aria-label={`写真 ${idx + 1} へ`}
                           />
                         ))}
                       </div>
@@ -2137,9 +2178,9 @@ function BshRetroApp() {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    togglePostLike(post.id);
+                    void togglePostLike(post.id);
                   }}
-                  className="flex items-center gap-1 transition-transform hover:scale-110 active:scale-95"
+                  className="touch-manipulation flex items-center gap-1 transition-transform hover:scale-110 active:scale-95"
                   aria-label="Like post"
                 >
                   <Heart
@@ -2156,7 +2197,7 @@ function BshRetroApp() {
                     setFeedCommentTargetId((prev) => (prev === post.id ? null : post.id));
                     setNewFeedCommentText("");
                   }}
-                  className="transition-transform hover:scale-110 active:scale-95"
+                  className="touch-manipulation transition-transform hover:scale-110 active:scale-95"
                   aria-label="投稿にコメント"
                 >
                   <MessageCircle size={20} />
@@ -2164,7 +2205,7 @@ function BshRetroApp() {
                 <button
                   type="button"
                   onClick={() => shareBshPost(setToastMessage)}
-                  className="transition-transform hover:scale-110 active:scale-95"
+                  className="touch-manipulation transition-transform hover:scale-110 active:scale-95"
                   aria-label="投稿をシェア"
                 >
                   <Send size={20} />
@@ -2748,8 +2789,33 @@ function BshRetroApp() {
         </div>
       )}
 
+      {feedLightboxSrc !== null && (
+        <div
+          className="fixed inset-0 z-[55] flex touch-none items-center justify-center bg-black/92 p-3"
+          onClick={() => setFeedLightboxSrc(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="写真を拡大表示"
+        >
+          <button
+            type="button"
+            className="touch-manipulation absolute right-3 top-3 z-10 rounded-full border-2 border-white/80 bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-md"
+            onClick={() => setFeedLightboxSrc(null)}
+          >
+            閉じる
+          </button>
+          <img
+            src={feedLightboxSrc}
+            alt=""
+            className="max-h-[min(92vh,100%)] max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+        </div>
+      )}
+
       {toastMessage && (
-        <div className="pointer-events-none fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-lg">
+        <div className="pointer-events-none fixed left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-lg bottom-[calc(6.25rem+env(safe-area-inset-bottom,0px))]">
           {toastMessage}
         </div>
       )}
