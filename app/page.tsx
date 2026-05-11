@@ -547,8 +547,9 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     setToastMessage(message);
     setToastIsError(isError);
   };
-  /** ニャード写真タップで拡大（スマホで「反応しない」対策） */
+  /** 写真タップで拡大 */
   const [feedLightboxSrc, setFeedLightboxSrc] = useState<string | null>(null);
+  const [doodleLightboxSrc, setDoodleLightboxSrc] = useState<string | null>(null);
   const [doodleLiked, setDoodleLiked] = useState<Record<number, boolean>>({});
   const [doodleLikeCounts, setDoodleLikeCounts] = useState<Record<number, number>>({});
   const [doodleComments, setDoodleComments] = useState<Record<number, ThreadComment[]>>({});
@@ -605,13 +606,13 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
   }, [toastMessage]);
 
   useEffect(() => {
-    if (feedLightboxSrc === null) return;
+    if (feedLightboxSrc === null && doodleLightboxSrc === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFeedLightboxSrc(null);
+      if (e.key === "Escape") { setFeedLightboxSrc(null); setDoodleLightboxSrc(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [feedLightboxSrc]);
+  }, [feedLightboxSrc, doodleLightboxSrc]);
 
   useEffect(() => {
     setFeedLikeCounts((prev) => {
@@ -2882,10 +2883,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     <img
                       src={post.image}
                       alt={`${post.user}の落書き`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDoodleLightboxSrc(post.image)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDoodleLightboxSrc(post.image); } }}
                       className={
                         isLounge
-                          ? "h-72 w-full border-b border-bsh-gold/25 object-cover"
-                          : "h-72 w-full border-b-2 border-[#4A4A4A] object-cover"
+                          ? "h-72 w-full cursor-pointer border-b border-bsh-gold/25 object-cover transition-opacity duration-300 ease-out active:opacity-90"
+                          : "h-72 w-full cursor-pointer border-b-2 border-[#4A4A4A] object-cover transition-opacity active:opacity-90"
                       }
                     />
                     <div
@@ -3411,13 +3416,46 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         >
           <button
             type="button"
-            className="touch-manipulation absolute right-3 top-3 z-10 rounded-full border-2 border-white/80 bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-md"
+            className={
+              isLounge
+                ? "touch-manipulation absolute right-3 top-3 z-10 rounded-full border border-bsh-gold/50 bg-bsh-graphite/90 px-3 py-1.5 text-[11px] font-semibold text-bsh-gold shadow-md"
+                : "touch-manipulation absolute right-3 top-3 z-10 rounded-full border-2 border-white/80 bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-md"
+            }
             onClick={() => setFeedLightboxSrc(null)}
           >
             閉じる
           </button>
           <img
             src={feedLightboxSrc}
+            alt=""
+            className="max-h-[min(92vh,100%)] max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+        </div>
+      )}
+
+      {doodleLightboxSrc !== null && (
+        <div
+          className="fixed inset-0 z-[55] flex touch-none items-center justify-center bg-black/92 p-3"
+          onClick={() => setDoodleLightboxSrc(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="ギャラリー画像を拡大表示"
+        >
+          <button
+            type="button"
+            className={
+              isLounge
+                ? "touch-manipulation absolute right-3 top-3 z-10 rounded-full border border-bsh-gold/50 bg-bsh-graphite/90 px-3 py-1.5 text-[11px] font-semibold text-bsh-gold shadow-md"
+                : "touch-manipulation absolute right-3 top-3 z-10 rounded-full border-2 border-white/80 bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-md"
+            }
+            onClick={() => setDoodleLightboxSrc(null)}
+          >
+            閉じる
+          </button>
+          <img
+            src={doodleLightboxSrc}
             alt=""
             className="max-h-[min(92vh,100%)] max-w-full object-contain"
             onClick={(e) => e.stopPropagation()}
@@ -3674,8 +3712,8 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[4px] p-5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
-                : "w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[26px] border-4 border-[#607D8B] bg-[#FFF8EE] p-5 shadow-2xl animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[4px] p-5 pb-[calc(1.25rem+5rem+env(safe-area-inset-bottom,0px))] shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[26px] border-4 border-[#607D8B] bg-[#FFF8EE] p-5 pb-[calc(1.25rem+5rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
           >
