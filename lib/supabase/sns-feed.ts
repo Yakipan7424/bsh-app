@@ -28,6 +28,7 @@ export type SnsCommentRow = {
   anon_id: string;
   text: string;
   created_at: string;
+  likes_count: number;
 };
 
 export function parseSnsImagesUrls(raw: unknown): string[] {
@@ -47,7 +48,7 @@ export function fetchSnsCommentsForPosts(supabase: SupabaseClient, postIds: numb
   }
   return supabase
     .from("sns_post_comments")
-    .select("id,post_id,user_name,anon_id,text,created_at")
+    .select("id,post_id,user_name,anon_id,text,created_at,likes_count")
     .in("post_id", postIds)
     .order("created_at", { ascending: true });
 }
@@ -88,7 +89,7 @@ export function insertSnsPostComment(
   return supabase
     .from("sns_post_comments")
     .insert(payload)
-    .select("id,post_id,user_name,anon_id,text,created_at")
+    .select("id,post_id,user_name,anon_id,text,created_at,likes_count")
     .single();
 }
 
@@ -109,4 +110,25 @@ export function updateSnsPostLikeCount(supabase: SupabaseClient, postId: number,
     .from("sns_posts")
     .update({ likes_count: likesCount, updated_at: new Date().toISOString() })
     .eq("id", postId);
+}
+
+/* ─── Comment Likes ─── */
+
+export function fetchCommentLikesForUser(supabase: SupabaseClient, anonId: string, commentIds: number[]) {
+  if (commentIds.length === 0) {
+    return Promise.resolve({ data: [] as Array<{ comment_id: number }>, error: null });
+  }
+  return supabase.from("sns_comment_likes").select("comment_id").eq("anon_id", anonId).in("comment_id", commentIds);
+}
+
+export function insertCommentLike(supabase: SupabaseClient, commentId: number, anonId: string) {
+  return supabase.from("sns_comment_likes").insert({ comment_id: commentId, anon_id: anonId });
+}
+
+export function deleteCommentLike(supabase: SupabaseClient, commentId: number, anonId: string) {
+  return supabase.from("sns_comment_likes").delete().eq("comment_id", commentId).eq("anon_id", anonId);
+}
+
+export function updateCommentLikeCount(supabase: SupabaseClient, commentId: number, likesCount: number) {
+  return supabase.from("sns_post_comments").update({ likes_count: likesCount }).eq("id", commentId);
 }

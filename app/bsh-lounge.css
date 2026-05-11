@@ -1,20 +1,29 @@
-/* BSH Times /v2 — ラウンジ（赤ワインバー）ビジュアル専用。/ ルートの既存デザインには影響しないニャ */
+/* BSH Times /v2 — Wine & Velvet プレミアムラウンジ */
 
 .bg-lounge-night {
-  background-color: var(--color-bsh-noir);
+  background-color: #0a0a0a;
   background-image:
-    radial-gradient(120% 80% at 50% 0%, rgba(74, 21, 24, 0.55), transparent 55%),
-    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.16), transparent 42%),
-    radial-gradient(1px 1px at 72% 32%, rgba(255, 255, 255, 0.12), transparent 40%),
-    radial-gradient(1px 1px at 38% 62%, rgba(255, 255, 255, 0.1), transparent 38%),
-    radial-gradient(1px 1px at 88% 78%, rgba(255, 255, 255, 0.11), transparent 40%),
-    radial-gradient(1px 1px at 22% 84%, rgba(255, 255, 255, 0.09), transparent 36%),
-    linear-gradient(180deg, rgba(43, 21, 23, 0.2), rgba(26, 22, 20, 0.95));
+    radial-gradient(ellipse 140% 60% at 50% -5%, rgba(90, 20, 30, 0.45), transparent 60%),
+    radial-gradient(1px 1px at 10% 15%, rgba(255, 255, 255, 0.12), transparent 50%),
+    radial-gradient(1px 1px at 70% 28%, rgba(255, 255, 255, 0.09), transparent 48%),
+    radial-gradient(1px 1px at 42% 58%, rgba(255, 255, 255, 0.07), transparent 44%),
+    radial-gradient(1px 1px at 85% 72%, rgba(255, 255, 255, 0.08), transparent 42%),
+    radial-gradient(1px 1px at 20% 88%, rgba(255, 255, 255, 0.06), transparent 40%),
+    linear-gradient(180deg, #0a0a0a 0%, #0d0809 40%, #0a0a0a 100%);
 }
 
 .bsh-lounge-card {
   position: relative;
-  border-radius: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 169, 110, 0.18);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.02) 50%,
+    rgba(90, 20, 30, 0.08) 100%
+  );
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 
 .bsh-lounge-card::before {
@@ -22,35 +31,62 @@
   pointer-events: none;
   position: absolute;
   inset: 0;
-  border-radius: 4px;
+  border-radius: 10px;
   box-shadow:
-    inset 0 0 0 1px rgba(201, 169, 110, 0.55),
-    inset 0 0 0 6px rgba(201, 169, 110, 0.06);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(201, 169, 110, 0.12);
 }
 
 .bsh-lounge-card::after {
   content: "";
   pointer-events: none;
   position: absolute;
-  inset: 6px;
-  border-radius: 2px;
-  border: 1px solid rgba(201, 169, 110, 0.18);
-  opacity: 0.85;
-  /* 四隅のリッチなラベル感（極細の装飾ライン） */
-  background:
-    linear-gradient(to right, rgba(201, 169, 110, 0.55), rgba(201, 169, 110, 0)) 0 0 / 22% 1px no-repeat,
-    linear-gradient(to bottom, rgba(201, 169, 110, 0.55), rgba(201, 169, 110, 0)) 0 0 / 1px 22% no-repeat,
-    linear-gradient(to left, rgba(201, 169, 110, 0.55), rgba(201, 169, 110, 0)) 100% 100% / 22% 1px no-repeat,
-    linear-gradient(to top, rgba(201, 169, 110, 0.55), rgba(201, 169, 110, 0)) 100% 100% / 1px 22% no-repeat;
+  inset: 0;
+  border-radius: 10px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    transparent 40%
+  );
 }
 
 .bsh-lounge-card-surface {
-  background-color: var(--color-bsh-graphite);
+  background-color: rgba(18, 12, 14, 0.85);
   background-image:
-    radial-gradient(1px 1px at 16% 24%, rgba(255, 255, 255, 0.07), transparent 42%),
-    radial-gradient(1px 1px at 58% 18%, rgba(255, 255, 255, 0.05), transparent 40%),
-    radial-gradient(1px 1px at 82% 44%, rgba(201, 169, 110, 0.12), transparent 38%),
-    radial-gradient(1px 1px at 34% 72%, rgba(255, 255, 255, 0.04), transparent 36%),
-    radial-gradient(1px 1px at 76% 86%, rgba(255, 255, 255, 0.05), transparent 34%),
-    linear-gradient(168deg, rgba(201, 169, 110, 0.045), transparent 42%, rgba(74, 21, 24, 0.22));
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(90, 20, 30, 0.15), transparent 60%),
+    linear-gradient(168deg, rgba(201, 169, 110, 0.03), transparent 50%, rgba(90, 20, 30, 0.06));
+}
+
+/* Glassmorphism button base */
+.bsh-glass-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(201, 169, 110, 0.2);
+  transition: all 0.3s ease;
+}
+.bsh-glass-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  border-color: rgba(201, 169, 110, 0.35);
+}
+.bsh-glass-btn:active {
+  transform: scale(0.97);
+}
+
+/* Sheen animation for premium feel */
+@keyframes bshSheen {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.bsh-sheen {
+  background-image: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 60%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: bshSheen 4s ease-in-out infinite;
 }

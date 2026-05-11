@@ -9,7 +9,10 @@ import {
   deleteSnsPostComment,
   deleteSnsPostLike,
   fetchSnsCommentsForPosts,
+  deleteCommentLike,
+  fetchCommentLikesForUser,
   fetchSnsLikesForPosts,
+  insertCommentLike,
   insertSnsPost,
   insertSnsPostComment,
   insertSnsPostLike,
@@ -17,6 +20,7 @@ import {
   parseSnsImagesUrls,
   type SnsCommentRow,
   type SnsPostRow,
+  updateCommentLikeCount,
   updateSnsPostLikeCount,
 } from "@/lib/supabase/sns-feed";
 import { BshVariantProvider, useBshVariant } from "@/app/context/bsh-variant-context";
@@ -120,6 +124,7 @@ type ThreadComment = {
   text: string;
   anonId?: string;
   createdAt?: string;
+  likesCount?: number;
 };
 
 type StoryItem = {
@@ -454,6 +459,7 @@ function mapGalleryCommentRowToThreadComment(row: GalleryCommentRow): ThreadComm
     text: row.text,
     anonId: row.anon_id,
     createdAt: row.created_at,
+    likesCount: (row as { likes_count?: number }).likes_count ?? 0,
   };
 }
 
@@ -526,6 +532,8 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
   const [doodleLightboxSrc, setDoodleLightboxSrc] = useState<string | null>(null);
   const [doodleLiked, setDoodleLiked] = useState<Record<number, boolean>>({});
   const [doodleLikeCounts, setDoodleLikeCounts] = useState<Record<number, number>>({});
+  const [commentLiked, setCommentLiked] = useState<Record<number, boolean>>({});
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<number, number>>({});
   const [doodleComments, setDoodleComments] = useState<Record<number, ThreadComment[]>>({});
   const [doodleCommentTargetId, setDoodleCommentTargetId] = useState<number | null>(null);
   const [newDoodleCommentText, setNewDoodleCommentText] = useState("");
@@ -952,7 +960,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           if (!commentsRes.error && commentsRes.data) {
             const grouped = (commentsRes.data as SnsCommentRow[]).reduce<Record<number, ThreadComment[]>>((acc, row) => {
               if (!acc[row.post_id]) acc[row.post_id] = [];
-              acc[row.post_id].push({ id: row.id, user: row.user_name, text: row.text, anonId: row.anon_id, createdAt: row.created_at });
+              acc[row.post_id].push({ id: row.id, user: row.user_name, text: row.text, anonId: row.anon_id, createdAt: row.created_at, likesCount: row.likes_count ?? 0 });
               return acc;
             }, {});
             setThreadComments(grouped);
@@ -963,6 +971,35 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         setThreadLikeCounts(nyatLikeCounts);
       } else if (nyatRes.error) {
         showToast("ニャットの読込に失敗したニャ...", true);
+      }
+
+      /* ─── Load comment likes for all visible comments ─── */
+      if (stale()) return;
+      const allCommentIds: number[] = [];
+      const allCommentLikeCounts: Record<number, number> = {};
+      const collectComments = (comments: Record<number, ThreadComment[]>) => {
+        for (const arr of Object.values(comments)) {
+          for (const c of arr) {
+            allCommentIds.push(c.id);
+            allCommentLikeCounts[c.id] = c.likesCount ?? 0;
+          }
+        }
+      };
+      collectComments(feedComments);
+      collectComments(threadComments);
+      collectComments(doodleComments);
+      setCommentLikeCounts((prev) => ({ ...prev, ...allCommentLikeCounts }));
+
+      if (allCommentIds.length > 0) {
+        const clRes = await fetchCommentLikesForUser(supabase, browserAnonId, allCommentIds);
+        if (stale()) return;
+        if (!clRes.error && clRes.data) {
+          const likedMap = (clRes.data as Array<{ comment_id: number }>).reduce<Record<number, boolean>>((acc, row) => {
+            acc[row.comment_id] = true;
+            return acc;
+          }, {});
+          setCommentLiked((prev) => ({ ...prev, ...likedMap }));
+        }
       }
     } catch {
       if (!stale()) {
@@ -1187,6 +1224,24 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       /* revert on error */
       setLikedThreads((prev) => ({ ...prev, [id]: !nextLiked }));
       setThreadLikeCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + (nextLiked ? -1 : 1) }));
+    }
+  };
+
+  const toggleCommentLike = async (commentId: number) => {
+    const nextLiked = !commentLiked[commentId];
+    setCommentLiked((prev) => ({ ...prev, [commentId]: nextLiked }));
+    const newCount = Math.max(0, (commentLikeCounts[commentId] ?? 0) + (nextLiked ? 1 : -1));
+    setCommentLikeCounts((prev) => ({ ...prev, [commentId]: newCount }));
+    try {
+      if (nextLiked) {
+        await insertCommentLike(supabase, commentId, browserAnonId);
+      } else {
+        await deleteCommentLike(supabase, commentId, browserAnonId);
+      }
+      await updateCommentLikeCount(supabase, commentId, newCount);
+    } catch {
+      setCommentLiked((prev) => ({ ...prev, [commentId]: !nextLiked }));
+      setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] ?? 0) + (nextLiked ? -1 : 1) }));
     }
   };
 
@@ -1961,7 +2016,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         <header
           className={
             isLounge
-              ? "sticky top-0 z-30 flex items-center justify-between border-b border-bsh-gold/35 bg-gradient-to-b from-bsh-noir to-bsh-burgundy px-5 py-3 transition-colors duration-300 ease-out"
+              ? "sticky top-0 z-30 flex items-center justify-between border-b border-bsh-gold/20 bg-gradient-to-r from-bsh-noir via-bsh-velvet to-bsh-noir px-5 py-3 backdrop-blur-md transition-colors duration-300 ease-out"
               : "sticky top-0 z-30 flex items-center justify-between border-b-4 border-[#607D8B] bg-[#F5EFE6] px-5 py-3"
           }
         >
@@ -1980,7 +2035,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               onClick={() => setIsUpdateModalOpen(true)}
               className={
                 isLounge
-                  ? "rounded-full border border-bsh-bordeaux bg-transparent px-2 py-0.5 text-[10px] font-bold tracking-wide text-bsh-gold transition-opacity duration-300 ease-out hover:opacity-85"
+                  ? "bsh-glass-btn rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-bsh-gold"
                   : "rounded-full border border-[#607D8B] bg-[#FFF8EE] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#607D8B] transition-opacity hover:opacity-80"
               }
             >
@@ -2013,7 +2068,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[86vh] overflow-y-auto rounded-[4px] p-4 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[86vh] overflow-y-auto rounded-xl p-4 shadow-[0_20px_50px_-15px_rgba(90,20,30,0.6)] animate-[modalZoomIn_260ms_ease-out]"
                 : "w-full max-w-md max-h-[86vh] overflow-y-auto rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-4 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
@@ -2046,7 +2101,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   key={log.date}
                   className={
                     isLounge
-                      ? "rounded-[4px] border border-bsh-gold/25 bg-bsh-noir/50 px-3 py-2"
+                      ? "rounded-lg border border-bsh-gold/15 bg-bsh-noir/60 px-3 py-2 backdrop-blur-sm"
                       : "rounded-xl border border-[#D4A373] bg-[#FFFCF7] px-3 py-2"
                   }
                 >
@@ -2067,7 +2122,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       <nav
         className={
           isLounge
-            ? "sticky top-[64px] z-20 flex border-b border-bsh-gold/40 bg-bsh-graphite/90 backdrop-blur-sm transition-colors duration-300 ease-out"
+            ? "sticky top-[64px] z-20 flex border-b border-bsh-gold/15 bg-bsh-noir/95 backdrop-blur-md transition-colors duration-300 ease-out"
             : "sticky top-[64px] z-20 flex border-b-2 border-[#607D8B] bg-white"
         }
       >
@@ -2091,7 +2146,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
             className={`flex-1 py-1.5 text-[11px] font-bold tracking-tight transition-all duration-300 ease-out ${
               activeTab === tab.key
                 ? isLounge
-                  ? "bg-bsh-bordeaux text-bsh-gold"
+                  ? "bg-gradient-to-b from-bsh-wine to-bsh-bordeaux text-bsh-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                   : "bg-[#607D8B] text-white"
                 : isLounge
                   ? "text-bsh-ivory/90 hover:bg-white/5"
@@ -2108,7 +2163,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         ref={homeScrollRef}
         className={
           isLounge
-            ? "scroll-mt-28 border-b border-bsh-gold/30 bg-gradient-to-b from-bsh-burgundy/35 to-bsh-noir px-4 py-2 transition-colors duration-300 ease-out"
+            ? "scroll-mt-28 border-b border-bsh-gold/15 bg-gradient-to-b from-bsh-velvet to-bsh-noir px-4 py-2 transition-colors duration-300 ease-out"
             : "scroll-mt-28 border-b-2 border-[#EADBC8] bg-[#FFF8EE] px-4 py-2"
         }
       >
@@ -2144,7 +2199,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               <span
                 className={
                   isLounge
-                    ? "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-bsh-graphite bg-bsh-bordeaux text-bsh-gold shadow-sm"
+                    ? "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-bsh-noir bg-gradient-to-br from-bsh-wine to-bsh-bordeaux text-bsh-gold shadow-sm"
                     : "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-[#FFF8EE] bg-[#0095F6] text-white shadow-sm"
                 }
                 aria-hidden
@@ -2211,14 +2266,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               key={post.id}
               className={
                 isLounge
-                  ? "bsh-lounge-card bsh-lounge-card-surface relative z-0 mx-3 mb-5 overflow-hidden shadow-[0_14px_32px_-12px_rgba(107,31,46,0.55),0_6px_16px_-8px_rgba(0,0,0,0.45)] transition-shadow duration-300 ease-out"
+                  ? "bsh-lounge-card bsh-lounge-card-surface relative z-0 mx-3 mb-5 overflow-hidden rounded-xl shadow-[0_16px_40px_-12px_rgba(90,20,30,0.5),0_8px_20px_-8px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out"
                   : "mb-5 overflow-hidden border-y-2 border-[#4A4A4A] bg-white shadow-[0_6px_0_0_rgba(212,163,115,0.35)]"
               }
             >
               <div
                 className={
                   isLounge
-                    ? "flex items-start justify-between gap-2 border-b border-bsh-gold/25 bg-bsh-graphite/60 px-3 py-1.5 backdrop-blur-[2px]"
+                    ? "flex items-start justify-between gap-2 border-b border-bsh-gold/15 bg-bsh-noir/40 px-3 py-2 backdrop-blur-sm"
                     : "flex items-start justify-between gap-2 border-b-2 border-[#FAF9F6] px-3 py-1.5"
                 }
                 style={isLounge ? undefined : SNS_PAW_STAMP_BG}
@@ -2400,10 +2455,10 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     className={`cursor-pointer transition-colors duration-300 ease-out ${
                       likedPosts[post.id]
                         ? isLounge
-                          ? "fill-bsh-bordeaux text-bsh-bordeaux"
+                          ? "fill-bsh-wine text-bsh-wine drop-shadow-[0_0_6px_rgba(107,29,42,0.6)]"
                           : "fill-red-500 text-red-500"
                         : isLounge
-                          ? "text-bsh-ivory/85"
+                          ? "text-bsh-ivory/70 hover:text-bsh-gold/80"
                           : "text-[#E56B6F]"
                     }`}
                   />
@@ -2464,7 +2519,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                       key={comment.id}
                       className={
                         isLounge
-                          ? "ml-1.5 rounded-[4px] border border-bsh-gold/20 bg-bsh-noir/50 px-1.5 py-0.5"
+                          ? "ml-1.5 rounded-xl border border-bsh-gold/20 bg-bsh-noir/50 px-1.5 py-0.5"
                           : "ml-1.5 rounded-md bg-[#FFFCF7] px-1.5 py-0.5"
                       }
                     >
@@ -2500,13 +2555,19 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                       >
                         {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                       </p>
-                      <p
-                        className={
-                          isLounge ? "text-[9px] leading-tight text-bsh-ivory/90" : "text-[9px] leading-tight text-[#4A4A4A]"
-                        }
-                      >
-                        {comment.text}
-                      </p>
+                      <div className="flex items-center justify-between gap-1">
+                        <p
+                          className={
+                            isLounge ? "text-[9px] leading-tight text-bsh-ivory/90" : "text-[9px] leading-tight text-[#4A4A4A]"
+                          }
+                        >
+                          {comment.text}
+                        </p>
+                        <button type="button" onClick={() => toggleCommentLike(comment.id)} className="shrink-0 flex items-center gap-0.5 transition-opacity active:opacity-75" aria-label="コメントにいいね">
+                          <Heart size={10} className={`transition-colors duration-200 ${commentLiked[comment.id] ? (isLounge ? "fill-bsh-wine text-bsh-wine" : "fill-red-400 text-red-400") : (isLounge ? "text-bsh-ivory/40" : "text-[#C0C0C0]")}`} />
+                          {(commentLikeCounts[comment.id] ?? 0) > 0 && <span className={isLounge ? "text-[7px] text-bsh-amber/60" : "text-[7px] text-[#AAA]"}>{commentLikeCounts[comment.id]}</span>}
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {(feedComments[post.id]?.length ?? 0) > 2 && (
@@ -2528,7 +2589,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                 <div
                   className={
                     isLounge
-                      ? "mt-1 rounded-[4px] border border-bsh-gold/30 bg-bsh-graphite/80 p-1.5"
+                      ? "mt-1 rounded-xl border border-bsh-gold/30 bg-bsh-graphite/80 p-1.5"
                       : "mt-1 rounded-lg border border-[#D4A373]/45 bg-[#FFF8EE] p-1.5"
                   }
                 >
@@ -2538,7 +2599,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     placeholder="コメントを書くニャ..."
                     className={
                       isLounge
-                        ? "h-14 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-1.5 text-[10px] leading-snug text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                        ? "h-14 w-full resize-none rounded-xl border border-bsh-gold/35 bg-bsh-noir/60 p-1.5 text-[10px] leading-snug text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
                         : "h-14 w-full resize-none rounded-md border border-[#D4A373] bg-[#FFFCF7] p-1.5 text-[10px] leading-snug outline-none focus:border-[#607D8B]"
                     }
                   />
@@ -2596,7 +2657,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                 }}
                 className={
                   isLounge
-                    ? "flex items-center gap-1 rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-2 py-1 text-[10px] font-semibold text-bsh-ivory shadow-[0_6px_18px_-10px_rgba(0,0,0,0.55)] transition-opacity duration-300 ease-out active:opacity-85"
+                    ? "bsh-glass-btn flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold text-bsh-gold shadow-[0_8px_20px_-10px_rgba(0,0,0,0.6)]"
                     : "flex items-center gap-1 rounded-full bg-[#607D8B] px-2 py-1 text-[10px] font-bold text-white shadow-sm transition-transform active:scale-95"
                 }
                 aria-label="NYATを投稿"
@@ -2622,7 +2683,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                 <div
                   className={
                     isLounge
-                      ? "bsh-lounge-card bsh-lounge-card-surface relative rounded-[4px] px-2.5 py-2 shadow-[0_12px_28px_-14px_rgba(107,31,46,0.5)]"
+                      ? "bsh-lounge-card bsh-lounge-card-surface relative rounded-xl px-2.5 py-2 shadow-[0_14px_32px_-12px_rgba(90,20,30,0.45),0_6px_14px_-6px_rgba(0,0,0,0.5)]"
                       : "relative rounded-lg border border-[#607D8B] bg-[#FEF9EF] px-2.5 py-2 shadow-sm"
                   }
                 >
@@ -2703,10 +2764,10 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                         className={`transition-colors duration-300 ease-out ${
                           likedThreads[thread.id]
                             ? isLounge
-                              ? "fill-bsh-bordeaux text-bsh-bordeaux"
+                              ? "fill-bsh-wine text-bsh-wine drop-shadow-[0_0_6px_rgba(107,29,42,0.6)]"
                               : "fill-red-500 text-red-500"
                             : isLounge
-                              ? "text-bsh-ivory/85"
+                              ? "text-bsh-ivory/70 hover:text-bsh-gold/80"
                               : ""
                         }`}
                       />
@@ -2756,7 +2817,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                             key={comment.id}
                             className={
                               isLounge
-                                ? "ml-3 rounded-[4px] border border-bsh-gold/22 bg-bsh-noir/45 px-2 py-1"
+                                ? "ml-3 rounded-xl border border-bsh-gold/22 bg-bsh-noir/45 px-2 py-1"
                                 : "ml-3 rounded-md border border-[#D4A373]/35 bg-[#FFFDF8] px-2 py-1"
                             }
                           >
@@ -2792,15 +2853,21 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                                 ×
                               </button>
                             </div>
-                            <p
-                              className={
-                                isLounge
-                                  ? "mt-0.5 text-[10px] leading-snug text-bsh-ivory/92"
-                                  : "mt-0.5 text-[10px] leading-snug text-[#4A4A4A]"
-                              }
-                            >
-                              {comment.text}
-                            </p>
+                            <div className="mt-0.5 flex items-center justify-between gap-1">
+                              <p
+                                className={
+                                  isLounge
+                                    ? "text-[10px] leading-snug text-bsh-ivory/92"
+                                    : "text-[10px] leading-snug text-[#4A4A4A]"
+                                }
+                              >
+                                {comment.text}
+                              </p>
+                              <button type="button" onClick={() => toggleCommentLike(comment.id)} className="shrink-0 flex items-center gap-0.5 transition-opacity active:opacity-75" aria-label="コメントにいいね">
+                                <Heart size={10} className={`transition-colors duration-200 ${commentLiked[comment.id] ? (isLounge ? "fill-bsh-wine text-bsh-wine" : "fill-red-400 text-red-400") : (isLounge ? "text-bsh-ivory/40" : "text-[#C0C0C0]")}`} />
+                                {(commentLikeCounts[comment.id] ?? 0) > 0 && <span className={isLounge ? "text-[7px] text-bsh-amber/60" : "text-[7px] text-[#AAA]"}>{commentLikeCounts[comment.id]}</span>}
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2818,7 +2885,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
             <div
               className={
                 isLounge
-                  ? "bsh-lounge-card bsh-lounge-card-surface rounded-[4px] border border-dashed border-bsh-gold/35 px-6 py-10 text-center shadow-[0_14px_32px_-14px_rgba(107,31,46,0.45)]"
+                  ? "bsh-lounge-card bsh-lounge-card-surface rounded-xl border border-dashed border-bsh-gold/35 px-6 py-10 text-center shadow-[0_14px_32px_-14px_rgba(90,20,30,0.45)]"
                   : "rounded-3xl border-2 border-dashed border-[#607D8B] bg-[#FFF8EE] px-6 py-10 text-center shadow-[0_8px_0_0_rgba(212,163,115,0.35)]"
               }
             >
@@ -2855,7 +2922,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
             <div
               className={
                 isLounge
-                  ? "mb-3 flex items-center justify-between rounded-[4px] border border-bsh-gold/40 bg-bsh-graphite/85 px-3 py-2 shadow-[0_12px_28px_-14px_rgba(107,31,46,0.45)]"
+                  ? "bsh-lounge-card bsh-lounge-card-surface mb-3 flex items-center justify-between rounded-xl px-3 py-2 shadow-[0_14px_32px_-12px_rgba(90,20,30,0.4)]"
                   : "mb-3 flex items-center justify-between rounded-2xl border-2 border-[#607D8B] bg-[#F4EEE2] px-3 py-2 shadow-[4px_4px_0_0_#D4A373]"
               }
             >
@@ -2894,7 +2961,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   key={post.id}
                   className={
                     isLounge
-                      ? `bsh-lounge-card bsh-lounge-card-surface rounded-[4px] p-1 shadow-[0_14px_30px_-12px_rgba(107,31,46,0.5)] ${idx % 2 === 0 ? "-rotate-[0.5deg]" : "rotate-[0.5deg]"}`
+                      ? `bsh-lounge-card bsh-lounge-card-surface rounded-xl p-1 shadow-[0_14px_30px_-12px_rgba(90,20,30,0.5)] ${idx % 2 === 0 ? "-rotate-[0.5deg]" : "rotate-[0.5deg]"}`
                       : `rounded-[14px] border border-[#4A4A4A] bg-[#EADBC8] p-1.5 shadow-[5px_5px_0_0_rgba(74,74,74,0.35)] ${
                           idx % 2 === 0 ? "-rotate-[0.8deg]" : "rotate-[0.8deg]"
                         }`
@@ -3051,7 +3118,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                               key={comment.id}
                               className={
                                 isLounge
-                                  ? "ml-1.5 rounded-[4px] border border-bsh-gold/18 bg-bsh-noir/50 px-1.5 py-0.5"
+                                  ? "ml-1.5 rounded-xl border border-bsh-gold/18 bg-bsh-noir/50 px-1.5 py-0.5"
                                   : "ml-1.5 rounded-md bg-[#FFF8EE] px-1.5 py-0.5"
                               }
                             >
@@ -3071,15 +3138,20 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                               >
                                 {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                               </p>
-                              <p
-                                className={
-                                  isLounge
-                                    ? "text-[6px] leading-tight text-bsh-ivory/90"
-                                    : "text-[6px] leading-tight text-[#4A4A4A]"
-                                }
-                              >
-                                {comment.text}
-                              </p>
+                              <div className="flex items-center justify-between gap-0.5">
+                                <p
+                                  className={
+                                    isLounge
+                                      ? "text-[6px] leading-tight text-bsh-ivory/90"
+                                      : "text-[6px] leading-tight text-[#4A4A4A]"
+                                  }
+                                >
+                                  {comment.text}
+                                </p>
+                                <button type="button" onClick={() => toggleCommentLike(comment.id)} className="shrink-0 transition-opacity active:opacity-75" aria-label="コメントにいいね">
+                                  <Heart size={8} className={`transition-colors duration-200 ${commentLiked[comment.id] ? (isLounge ? "fill-bsh-wine text-bsh-wine" : "fill-red-400 text-red-400") : (isLounge ? "text-bsh-ivory/35" : "text-[#C0C0C0]")}`} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -3184,7 +3256,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-xl p-3.5 shadow-[0_20px_50px_-15px_rgba(90,20,30,0.6)] animate-[modalZoomIn_260ms_ease-out]"
                 : "w-full max-w-sm rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
@@ -3204,7 +3276,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               placeholder="今なにしてるニャ？ 猫の独り言を投稿するニャ"
               className={
                 isLounge
-                  ? "h-28 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  ? "h-28 w-full resize-none rounded-lg border border-bsh-gold/20 bg-bsh-noir/70 p-2.5 text-xs leading-snug text-bsh-ivory outline-none backdrop-blur-sm transition-colors duration-300 ease-out placeholder:text-bsh-ivory/30 focus:border-bsh-gold/45"
                   : "h-28 w-full resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
               }
             />
@@ -3254,7 +3326,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-xl p-3.5 shadow-[0_20px_50px_-15px_rgba(90,20,30,0.6)] animate-[modalZoomIn_260ms_ease-out]"
                 : "w-full max-w-sm rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
@@ -3266,7 +3338,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               placeholder="コメントを書くニャ..."
               className={
                 isLounge
-                  ? "h-24 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  ? "h-24 w-full resize-none rounded-xl border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
                   : "h-24 w-full resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
               }
             />
@@ -3313,7 +3385,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm max-h-[78vh] overflow-y-auto rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm max-h-[78vh] overflow-y-auto rounded-xl p-3.5 shadow-[0_20px_50px_-15px_rgba(90,20,30,0.6)] animate-[modalZoomIn_260ms_ease-out]"
                 : "w-full max-w-sm max-h-[78vh] overflow-y-auto rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
@@ -3338,7 +3410,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   key={comment.id}
                   className={
                     isLounge
-                      ? "rounded-[4px] border border-bsh-gold/20 bg-bsh-noir/50 px-2 py-1.5"
+                      ? "rounded-xl border border-bsh-gold/20 bg-bsh-noir/50 px-2 py-1.5"
                       : "rounded-md border border-[#D4A373]/35 bg-[#FFFCF7] px-2 py-1.5"
                   }
                 >
@@ -3361,6 +3433,24 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                   </p>
                   <p className={isLounge ? "text-[10px] leading-snug text-bsh-ivory/90" : "text-[10px] leading-snug text-[#4A4A4A]"}>{comment.text}</p>
+                  <button
+                    type="button"
+                    onClick={() => toggleCommentLike(comment.id)}
+                    className="mt-0.5 flex items-center gap-0.5 transition-opacity active:opacity-75"
+                    aria-label="コメントにいいね"
+                  >
+                    <Heart
+                      size={12}
+                      className={`transition-colors duration-200 ${
+                        commentLiked[comment.id]
+                          ? isLounge ? "fill-bsh-wine text-bsh-wine" : "fill-red-400 text-red-400"
+                          : isLounge ? "text-bsh-ivory/50 hover:text-bsh-gold/70" : "text-[#B0B0B0] hover:text-red-300"
+                      }`}
+                    />
+                    {(commentLikeCounts[comment.id] ?? 0) > 0 && (
+                      <span className={isLounge ? "text-[8px] text-bsh-amber/70" : "text-[8px] text-[#999]"}>{commentLikeCounts[comment.id]}</span>
+                    )}
+                  </button>
                 </div>
               ))}
               {(feedComments[feedCommentsModalPostId] ?? []).length === 0 && (
@@ -3385,7 +3475,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-xl p-3.5 shadow-[0_20px_50px_-15px_rgba(90,20,30,0.6)] animate-[modalZoomIn_260ms_ease-out]"
                 : "w-full max-w-sm rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
@@ -3397,7 +3487,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               placeholder="この作品の感想を書くニャ..."
               className={
                 isLounge
-                  ? "h-24 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  ? "h-24 w-full resize-none rounded-xl border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
                   : "h-24 w-full resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
               }
             />
@@ -3496,7 +3586,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           className={`pointer-events-none fixed left-1/2 z-[60] max-w-[85vw] -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-[11px] font-bold shadow-lg transition-colors duration-300 ease-out bottom-[calc(6.25rem+env(safe-area-inset-bottom,0px))] ${
             toastIsError
               ? isLounge
-                ? "border border-bsh-bordeaux bg-bsh-bordeaux/95 text-bsh-ivory shadow-[0_8px_24px_-8px_rgba(107,31,46,0.65)]"
+                ? "border border-bsh-bordeaux bg-bsh-bordeaux/95 text-bsh-ivory shadow-[0_8px_24px_-8px_rgba(90,20,30,0.65)]"
                 : "bg-[#C62828]/90 text-white"
               : isLounge
                 ? "border border-bsh-gold/40 bg-bsh-graphite/95 text-bsh-gold shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
@@ -3739,7 +3829,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           <div
             className={
               isLounge
-                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[4px] p-5 pb-[calc(1.25rem+5rem+env(safe-area-inset-bottom,0px))] shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[92vh] overflow-y-auto rounded-xl p-5 pb-[calc(1.25rem+5rem+env(safe-area-inset-bottom,0px))] shadow-[0_20px_50px_-15px_rgba(90,20,30,0.6)] animate-[modalZoomIn_260ms_ease-out]"
                 : "w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[26px] border-4 border-[#607D8B] bg-[#FFF8EE] p-5 pb-[calc(1.25rem+5rem+env(safe-area-inset-bottom,0px))] shadow-2xl animate-[modalZoomIn_260ms_ease-out]"
             }
             onClick={(e) => e.stopPropagation()}
@@ -3764,7 +3854,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               <div
                 className={
                   isLounge
-                    ? "flex w-full items-center justify-center rounded-[4px] border border-dashed border-bsh-gold/40 bg-bsh-noir/40 px-3 py-2.5 text-center text-xs font-semibold text-bsh-gold transition-colors duration-300 ease-out hover:bg-bsh-noir/60"
+                    ? "flex w-full items-center justify-center rounded-xl border border-dashed border-bsh-gold/40 bg-bsh-noir/40 px-3 py-2.5 text-center text-xs font-semibold text-bsh-gold transition-colors duration-300 ease-out hover:bg-bsh-noir/60"
                     : "flex w-full items-center justify-center rounded-xl border border-dashed border-[#D4A373] bg-[#FFFCF7] px-3 py-2.5 text-center text-xs font-bold text-[#607D8B] transition-colors hover:bg-[#FFF5E8]"
                 }
               >
@@ -3776,7 +3866,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               disabled
               className={
                 isLounge
-                  ? "mb-3 flex w-full cursor-not-allowed items-center justify-center rounded-[4px] border border-dashed border-bsh-ivory/20 bg-bsh-noir/25 px-3 py-2.5 text-center text-xs font-semibold text-bsh-ivory/40 opacity-85"
+                  ? "mb-3 flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-dashed border-bsh-ivory/20 bg-bsh-noir/25 px-3 py-2.5 text-center text-xs font-semibold text-bsh-ivory/40 opacity-85"
                   : "mb-3 flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-dashed border-[#B7C9D1] bg-[#F5F8FA] px-3 py-2.5 text-center text-xs font-bold text-[#7F98A5] opacity-85"
               }
               aria-label="動画をアップロード（準備中）"
@@ -3791,7 +3881,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     alt="選択した画像プレビュー"
                     className={
                       isLounge
-                        ? "h-[min(52vh,360px)] min-h-[220px] w-full rounded-[4px] border border-bsh-gold/35 object-cover"
+                        ? "h-[min(52vh,360px)] min-h-[220px] w-full rounded-xl border border-bsh-gold/35 object-cover"
                         : "h-[min(52vh,360px)] min-h-[220px] w-full rounded-2xl border-2 border-[#D4A373] object-cover"
                     }
                   />
@@ -3804,7 +3894,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                         alt={`選択画像 ${idx + 1}`}
                         className={
                           isLounge
-                            ? "h-28 w-full rounded-[4px] border border-bsh-gold/35 object-cover"
+                            ? "h-28 w-full rounded-xl border border-bsh-gold/35 object-cover"
                             : "h-28 w-full rounded-xl border-2 border-[#D4A373] object-cover"
                         }
                       />
@@ -3819,7 +3909,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               placeholder={activeTab === "doodle" ? "作品タイトルや一言を添えよう..." : "今日のねこ日記を書いてみよう..."}
               className={
                 isLounge
-                  ? "h-36 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-4 text-sm text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  ? "h-36 w-full resize-none rounded-xl border border-bsh-gold/35 bg-bsh-noir/60 p-4 text-sm text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
                   : "h-36 w-full resize-none rounded-2xl border-2 border-[#D4A373] bg-[#FFFCF7] p-4 text-sm outline-none focus:border-[#607D8B]"
               }
             />

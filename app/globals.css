@@ -11,14 +11,16 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* BSH Times /v2 ラウンジ（赤ワインバー）パレット */
-  --color-bsh-noir: #2b1517;
-  --color-bsh-burgundy: #4a1518;
-  --color-bsh-bordeaux: #6b1f2e;
+  /* BSH Times /v2 — Wine & Velvet パレット */
+  --color-bsh-noir: #0a0a0a;
+  --color-bsh-burgundy: #3a0c14;
+  --color-bsh-bordeaux: #5a141e;
   --color-bsh-gold: #c9a96e;
   --color-bsh-amber: #b8843a;
-  --color-bsh-ivory: #f5efe3;
-  --color-bsh-graphite: #1a1614;
+  --color-bsh-ivory: #f0ebe0;
+  --color-bsh-graphite: #120c0e;
+  --color-bsh-wine: #6b1d2a;
+  --color-bsh-velvet: #1a0e12;
 }
 
 @media (prefers-color-scheme: dark) {
