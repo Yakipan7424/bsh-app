@@ -15,6 +15,7 @@ import {
   insertSnsPostLike,
   listSnsPosts,
   parseSnsImagesUrls,
+  type SnsCommentRow,
   type SnsPostRow,
   updateSnsPostLikeCount,
 } from "@/lib/supabase/sns-feed";
@@ -160,21 +161,8 @@ const INITIAL_STORIES: StoryItem[] = [
   { id: 5, name: "ココ", mediaUrl: "https://images.unsplash.com/photo-1543852786-1cf6624b9987", mediaType: "image", createdAt: "2026-05-08T19:05:00+09:00" },
 ];
 
-const INITIAL_THREADS: ThreadItem[] = [
-  {
-    id: 1,
-    user: "@名無しのBSH",
-    text: "ブリティッシュショートヘアの「虚無」の表情、一生見てられるよね。同意する人？",
-    timeLabel: "15:30",
-    anonId: "49VD88",
-    createdAt: "2026-05-08T15:30:00+09:00",
-  },
-];
 
-const LS_THREAD_POSTS = "bsh-times.thread-posts";
 const LS_BROWSER_ANON_ID = "bsh-times.browser-anon-id";
-const LS_LIKED_THREADS = "bsh-times.liked-threads";
-const LS_THREAD_LIKE_COUNTS = "bsh-times.thread-like-counts";
 const ANON_DEFAULT_NAME = "名無しのBSH";
 const ANON_NAME_CANDIDATES = [
   "丸顔のBSH",
@@ -298,19 +286,6 @@ function isPostRecord(x: unknown): x is FeedPost {
     typeof o.likes === "number" &&
     typeof o.image === "string" &&
     (o.images === undefined || (Array.isArray(o.images) && o.images.every((item) => typeof item === "string"))) &&
-    (o.anonId === undefined || typeof o.anonId === "string") &&
-    (o.createdAt === undefined || typeof o.createdAt === "string")
-  );
-}
-
-function isThreadRecord(x: unknown): x is ThreadItem {
-  if (typeof x !== "object" || x === null) return false;
-  const o = x as Record<string, unknown>;
-  return (
-    typeof o.id === "number" &&
-    typeof o.user === "string" &&
-    typeof o.text === "string" &&
-    typeof o.timeLabel === "string" &&
     (o.anonId === undefined || typeof o.anonId === "string") &&
     (o.createdAt === undefined || typeof o.createdAt === "string")
   );
@@ -511,7 +486,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
   const [feedCommentsModalPostId, setFeedCommentsModalPostId] = useState<number | null>(null);
   const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
   const [feedLikeCounts, setFeedLikeCounts] = useState<Record<number, number>>({});
-  const [threadPosts, setThreadPosts] = useState<ThreadItem[]>(INITIAL_THREADS);
+  const [threadPosts, setThreadPosts] = useState<ThreadItem[]>([]);
   const [likedThreads, setLikedThreads] = useState<Record<number, boolean>>({});
   const [threadLikeCounts, setThreadLikeCounts] = useState<Record<number, number>>({});
   const [activeStory, setActiveStory] = useState<number | null>(null);
@@ -537,7 +512,6 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
   const [threadComments, setThreadComments] = useState<Record<number, ThreadComment[]>>({});
   const [commentTargetThreadId, setCommentTargetThreadId] = useState<number | null>(null);
   const [newCommentText, setNewCommentText] = useState("");
-  const [storageReady, setStorageReady] = useState(false);
   const [browserAnonId, setBrowserAnonId] = useState("GUEST0000");
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -749,37 +723,13 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     return () => window.removeEventListener("bsh:scroll-home", onScrollHome);
   }, [scrollToHomeAnchor]);
 
-  /** 起動時: NYAT スレッド等を localStorage から復元（ニャードは Supabase） */
-  useEffect(() => {
-    try {
-      const threadRaw = localStorage.getItem(LS_THREAD_POSTS);
-      if (threadRaw !== null) {
-        const data = JSON.parse(threadRaw) as unknown;
-        if (Array.isArray(data)) {
-          setThreadPosts(data.filter(isThreadRecord));
-        }
-      }
-      const likedThreadsRaw = localStorage.getItem(LS_LIKED_THREADS);
-      if (likedThreadsRaw !== null) {
-        setLikedThreads(JSON.parse(likedThreadsRaw) as Record<number, boolean>);
-      }
-      const threadLikeCountsRaw = localStorage.getItem(LS_THREAD_LIKE_COUNTS);
-      if (threadLikeCountsRaw !== null) {
-        setThreadLikeCounts(JSON.parse(threadLikeCountsRaw) as Record<number, number>);
-      }
-    } catch {
-      /* 壊れぁEJSON は無要E*/
-    }
-    setStorageReady(true);
-  }, []);
-
   const loadFromSupabase = useCallback(async () => {
     const gen = ++loadGenerationRef.current;
     const stale = () => gen !== loadGenerationRef.current;
 
     try {
       const now = new Date().toISOString();
-      const [galleryRes, storiesRes, snsRes] = await Promise.all([
+      const [galleryRes, storiesRes, snsRes, nyatRes] = await Promise.all([
         supabase
           .from("gallery_posts")
           .select("id,user_name,anon_id,content,image_url,likes_count,created_at")
@@ -789,7 +739,8 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           .select("id,user_name,anon_id,media_url,media_type,created_at,expires_at")
           .gt("expires_at", now)
           .order("created_at", { ascending: false }),
-        listSnsPosts(supabase),
+        listSnsPosts(supabase, "nyad"),
+        listSnsPosts(supabase, "nyat"),
       ]);
 
       if (stale()) return;
@@ -965,6 +916,54 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           showToast("ニャードの読込に失敗したニャ...", true);
         }
       }
+
+      if (stale()) return;
+
+      if (!nyatRes.error && nyatRes.data != null) {
+        const nyatRows = nyatRes.data as SnsPostRow[];
+        const nyatItems: ThreadItem[] = nyatRows.map((row) => ({
+          id: row.id,
+          user: row.user_name.startsWith("@") ? row.user_name : `@${row.user_name}`,
+          text: row.content,
+          timeLabel: formatNyatTime(row.created_at, "今"),
+          anonId: row.anon_id,
+          createdAt: row.created_at,
+        }));
+        setThreadPosts(nyatItems);
+
+        const nyatIds = nyatItems.map((t) => t.id);
+        let nyatLikedMap: Record<number, boolean> = {};
+        let nyatLikeCounts: Record<number, number> = {};
+
+        nyatRows.forEach((row) => { nyatLikeCounts[row.id] = row.likes_count ?? 0; });
+
+        if (nyatIds.length > 0) {
+          const likesRes = await fetchSnsLikesForPosts(supabase, browserAnonId, nyatIds);
+          if (stale()) return;
+          if (!likesRes.error && likesRes.data) {
+            nyatLikedMap = (likesRes.data as Array<{ post_id: number }>).reduce<Record<number, boolean>>((acc, row) => {
+              acc[row.post_id] = true;
+              return acc;
+            }, {});
+          }
+
+          const commentsRes = await fetchSnsCommentsForPosts(supabase, nyatIds);
+          if (stale()) return;
+          if (!commentsRes.error && commentsRes.data) {
+            const grouped = (commentsRes.data as SnsCommentRow[]).reduce<Record<number, ThreadComment[]>>((acc, row) => {
+              if (!acc[row.post_id]) acc[row.post_id] = [];
+              acc[row.post_id].push({ id: row.id, user: row.user_name, text: row.text, anonId: row.anon_id, createdAt: row.created_at });
+              return acc;
+            }, {});
+            setThreadComments(grouped);
+          }
+        }
+
+        setLikedThreads(nyatLikedMap);
+        setThreadLikeCounts(nyatLikeCounts);
+      } else if (nyatRes.error) {
+        showToast("ニャットの読込に失敗したニャ...", true);
+      }
     } catch {
       if (!stale()) {
         showToast("サーバーとの同期に失敗したニャ…（通信を確認してほしいニャ）", true);
@@ -1017,26 +1016,6 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       void supabase.removeChannel(channel);
     };
   }, [browserAnonId, loadFromSupabase]);
-
-  /** スレッド投稿の変更を localStorage へ保存 */
-  useEffect(() => {
-    if (!storageReady) return;
-    try {
-      localStorage.setItem(LS_THREAD_POSTS, JSON.stringify(threadPosts));
-    } catch {
-      /* 容量超過など */
-    }
-  }, [threadPosts, storageReady]);
-
-  useEffect(() => {
-    if (!storageReady) return;
-    try {
-      localStorage.setItem(LS_LIKED_THREADS, JSON.stringify(likedThreads));
-      localStorage.setItem(LS_THREAD_LIKE_COUNTS, JSON.stringify(threadLikeCounts));
-    } catch {
-      /* 容量超過など */
-    }
-  }, [likedThreads, threadLikeCounts, storageReady]);
 
   const submitPost = async () => {
     try {
@@ -1147,33 +1126,68 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     }
   };
 
-  const submitThread = () => {
+  const submitThread = async () => {
     const text = newThreadText.trim();
     if (!text) return;
     const anonName = getRandomNyatAnonName();
 
-    const item: ThreadItem = {
-      id: Date.now(),
-      user: anonName,
-      text,
-      timeLabel: "今",
-      anonId: browserAnonId,
-      createdAt: new Date().toISOString(),
-    };
-
-    setThreadPosts((prev) => [item, ...prev]);
     setNewThreadText("");
     setIsThreadComposerOpen(false);
     setActiveTab("threads");
+
+    try {
+      const { data, error } = await insertSnsPost(supabase, {
+        user_name: anonName,
+        anon_id: browserAnonId,
+        content: text,
+        lang: "ja",
+        translated: "",
+        image_url: "",
+        images_urls: [],
+        media_type: "image",
+        likes_count: 0,
+        tab: "nyat",
+      });
+
+      if (error) {
+        showToast(`ニャットの投稿に失敗したニャ！(${error.message})`, true);
+        return;
+      }
+
+      if (data) {
+        const row = data as SnsPostRow;
+        const item: ThreadItem = {
+          id: row.id,
+          user: row.user_name.startsWith("@") ? row.user_name : `@${row.user_name}`,
+          text: row.content,
+          timeLabel: "今",
+          anonId: row.anon_id,
+          createdAt: row.created_at,
+        };
+        setThreadPosts((prev) => [item, ...prev]);
+      }
+    } catch {
+      showToast("ニャットの投稿に失敗したニャ！", true);
+    }
   };
 
-  const toggleThreadLike = (id: number) => {
+  const toggleThreadLike = async (id: number) => {
     const nextLiked = !likedThreads[id];
     setLikedThreads((prev) => ({ ...prev, [id]: nextLiked }));
-    setThreadLikeCounts((prev) => ({
-      ...prev,
-      [id]: Math.max(0, (prev[id] ?? 0) + (nextLiked ? 1 : -1)),
-    }));
+    const newCount = Math.max(0, (threadLikeCounts[id] ?? 0) + (nextLiked ? 1 : -1));
+    setThreadLikeCounts((prev) => ({ ...prev, [id]: newCount }));
+    try {
+      if (nextLiked) {
+        await insertSnsPostLike(supabase, id, browserAnonId);
+      } else {
+        await deleteSnsPostLike(supabase, id, browserAnonId);
+      }
+      await updateSnsPostLikeCount(supabase, id, newCount);
+    } catch {
+      /* revert on error */
+      setLikedThreads((prev) => ({ ...prev, [id]: !nextLiked }));
+      setThreadLikeCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + (nextLiked ? -1 : 1) }));
+    }
   };
 
   const removeFeedPost = async (id: number) => {
@@ -1797,15 +1811,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     storyStripDragRef.current.isDragging = false;
   };
 
-  const removeThreadComment = (threadId: number, commentId: number) => {
+  const removeThreadComment = async (threadId: number, commentId: number) => {
     setThreadComments((prev) => {
       const target = prev[threadId] ?? [];
-      const nextComments = target.filter((comment) => comment.id !== commentId);
-      return {
-        ...prev,
-        [threadId]: nextComments,
-      };
+      return { ...prev, [threadId]: target.filter((c) => c.id !== commentId) };
     });
+    try {
+      await deleteSnsPostComment(supabase, threadId, commentId);
+    } catch { /* best-effort */ }
   };
 
   const openThreadCommentModal = (threadId: number) => {
@@ -1813,29 +1826,43 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     setNewCommentText("");
   };
 
-  const submitThreadComment = () => {
+  const submitThreadComment = async () => {
     if (commentTargetThreadId === null) return;
     const text = newCommentText.trim();
     if (!text) return;
     const anonName = getRandomNyatAnonName();
-
-    const item: ThreadComment = {
-      id: Date.now(),
-      user: anonName,
-      text,
-      anonId: browserAnonId,
-      createdAt: new Date().toISOString(),
-    };
-
-    setThreadComments((prev) => {
-      const existing = prev[commentTargetThreadId] ?? [];
-      return {
-        ...prev,
-        [commentTargetThreadId]: [...existing, item],
-      };
-    });
+    const targetId = commentTargetThreadId;
     setNewCommentText("");
     setCommentTargetThreadId(null);
+
+    try {
+      const { data, error } = await insertSnsPostComment(supabase, {
+        post_id: targetId,
+        user_name: anonName,
+        anon_id: browserAnonId,
+        text,
+      });
+      if (error) {
+        showToast(`コメント投稿に失敗したニャ！(${error.message})`, true);
+        return;
+      }
+      if (data) {
+        const row = data as SnsCommentRow;
+        const item: ThreadComment = {
+          id: row.id,
+          user: row.user_name,
+          text: row.text,
+          anonId: row.anon_id,
+          createdAt: row.created_at,
+        };
+        setThreadComments((prev) => ({
+          ...prev,
+          [targetId]: [...(prev[targetId] ?? []), item],
+        }));
+      }
+    } catch {
+      showToast("コメント投稿に失敗したニャ！", true);
+    }
   };
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {

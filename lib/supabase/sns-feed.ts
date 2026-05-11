@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Step 3: ニャード用の Supabase クエリをまとめるニャ */
 export const SNS_POST_COLUMNS =
-  "id,user_name,anon_id,content,lang,translated,image_url,images_urls,media_type,likes_count,created_at" as const;
+  "id,user_name,anon_id,content,lang,translated,image_url,images_urls,media_type,likes_count,created_at,tab" as const;
+
+export type SnsTab = "nyad" | "nyat";
 
 export type SnsPostRow = {
   id: number;
@@ -16,6 +18,7 @@ export type SnsPostRow = {
   media_type: "image" | "video";
   likes_count: number;
   created_at: string;
+  tab: SnsTab;
 };
 
 export type SnsCommentRow = {
@@ -32,8 +35,10 @@ export function parseSnsImagesUrls(raw: unknown): string[] {
   return raw.filter((x): x is string => typeof x === "string");
 }
 
-export function listSnsPosts(supabase: SupabaseClient) {
-  return supabase.from("sns_posts").select(SNS_POST_COLUMNS).order("created_at", { ascending: false });
+export function listSnsPosts(supabase: SupabaseClient, tab?: SnsTab) {
+  let q = supabase.from("sns_posts").select(SNS_POST_COLUMNS);
+  if (tab) q = q.eq("tab", tab);
+  return q.order("created_at", { ascending: false });
 }
 
 export function fetchSnsCommentsForPosts(supabase: SupabaseClient, postIds: number[]) {
@@ -66,9 +71,10 @@ export function insertSnsPost(
     images_urls: string[];
     media_type: "image" | "video";
     likes_count: number;
+    tab?: SnsTab;
   },
 ) {
-  return supabase.from("sns_posts").insert(payload).select(SNS_POST_COLUMNS).single();
+  return supabase.from("sns_posts").insert({ tab: "nyad", ...payload }).select(SNS_POST_COLUMNS).single();
 }
 
 export function deleteSnsPost(supabase: SupabaseClient, id: number) {
