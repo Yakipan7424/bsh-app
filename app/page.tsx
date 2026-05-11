@@ -2035,7 +2035,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               onClick={() => setIsUpdateModalOpen(true)}
               className={
                 isLounge
-                  ? "bsh-glass-btn rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-bsh-gold"
+                  ? "bsh-update-btn rounded-full px-3 py-1 text-[10px] font-bold tracking-wide text-[#D9C0A3]"
                   : "rounded-full border border-[#607D8B] bg-[#FFF8EE] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#607D8B] transition-opacity hover:opacity-80"
               }
             >
