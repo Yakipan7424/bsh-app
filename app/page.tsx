@@ -388,7 +388,7 @@ function formatNyatTime(isoTime?: string, fallback = "今") {
   return `${h}:${min}`;
 }
 
-async function shareBshPost(setToastMessage: (message: string) => void) {
+async function shareBshPost(showToast: (message: string, isError?: boolean) => void) {
   const shareUrl = window.location.href;
   const shareText = `BSH Timesで見つけた可愛いブリティッシュショートヘアを見てニャ！ ${shareUrl}`;
 
@@ -401,16 +401,15 @@ async function shareBshPost(setToastMessage: (message: string) => void) {
       });
       return;
     } catch {
-      // シェア操作キャンセル等はフォールバック不要
       return;
     }
   }
 
   try {
     await navigator.clipboard.writeText(shareUrl);
-    setToastMessage("URLをコピーしたニャ！");
+    showToast("URLをコピーしたニャ！");
   } catch {
-    setToastMessage("URLコピーに失敗したニャ...");
+    showToast("URLコピーに失敗したニャ...", true);
   }
 }
 
@@ -542,6 +541,12 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
   const [browserAnonId, setBrowserAnonId] = useState("GUEST0000");
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastIsError, setToastIsError] = useState(false);
+
+  const showToast = (message: string, isError = false) => {
+    setToastMessage(message);
+    setToastIsError(isError);
+  };
   /** ニャード写真タップで拡大（スマホで「反応しない」対策） */
   const [feedLightboxSrc, setFeedLightboxSrc] = useState<string | null>(null);
   const [doodleLiked, setDoodleLiked] = useState<Record<number, boolean>>({});
@@ -594,7 +599,8 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
   useEffect(() => {
     if (!toastMessage) return;
-    const timer = window.setTimeout(() => setToastMessage(""), 1800);
+    const duration = toastIsError ? 3500 : 1800;
+    const timer = window.setTimeout(() => { setToastMessage(""); setToastIsError(false); }, duration);
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
 
@@ -679,7 +685,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     } catch {
       setLikedPosts((prev) => ({ ...prev, [id]: currentlyLiked }));
       setFeedLikeCounts((prev) => ({ ...prev, [id]: currentCount }));
-      setToastMessage("いいね保存に失敗したニャ...");
+      showToast("いいね保存に失敗したニャ...", true);
     }
   };
 
@@ -830,7 +836,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
             }, {});
             setDoodleComments(grouped);
           } else if (commentsRes.error) {
-            setToastMessage("ギャラリーコメントの読込に失敗したニャ...");
+            showToast("ギャラリーコメントの読込に失敗したニャ...", true);
           }
 
           if (!likesRes.error && likesRes.data) {
@@ -840,14 +846,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
             }, {});
             setDoodleLiked(likedMap);
           } else if (likesRes.error) {
-            setToastMessage("いいね状態の読込に失敗したニャ...");
+            showToast("いいね状態の読込に失敗したニャ...", true);
           }
         } else {
           setDoodleComments({});
           setDoodleLiked({});
         }
       } else if (galleryRes.error) {
-        setToastMessage("ギャラリーの読込に失敗したニャ...");
+        showToast("ギャラリーの読込に失敗したニャ...", true);
       }
 
       if (stale()) return;
@@ -863,7 +869,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         if (stale()) return;
         setStories(storiesForDisplay.map(mapStoryRowToStoryItem));
       } else if (storiesRes.error) {
-        setToastMessage("ストーリーの読込に失敗したニャ...");
+        showToast("ストーリーの読込に失敗したニャ...", true);
       }
 
       if (stale()) return;
@@ -903,7 +909,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               return acc;
             }, {});
           } else if (snsCommentsRes.error) {
-            setToastMessage("ニャードのコメント読込に失敗したニャ...");
+            showToast("ニャードのコメント読込に失敗したニャ...", true);
           }
 
           if (!snsLikesRes.error && snsLikesRes.data) {
@@ -912,7 +918,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               return acc;
             }, {});
           } else if (snsLikesRes.error) {
-            setToastMessage("ニャードのいいね状態の読込に失敗したニャ...");
+            showToast("ニャードのいいね状態の読込に失敗したニャ...", true);
           }
         }
 
@@ -953,14 +959,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         const code = (snsRes.error as { code?: string }).code;
         const msg = snsRes.error.message ?? "";
         if (code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache")) {
-          setToastMessage("ニャード用テーブルが無いニャ…Supabase で sns_feed.sql を実行してほしいニャ");
+          showToast("ニャード用テーブルが無いニャ…Supabase で sns_feed.sql を実行してほしいニャ", true);
         } else {
-          setToastMessage("ニャードの読込に失敗したニャ...");
+          showToast("ニャードの読込に失敗したニャ...", true);
         }
       }
     } catch {
       if (!stale()) {
-        setToastMessage("サーバーとの同期に失敗したニャ…（通信を確認してほしいニャ）");
+        showToast("サーバーとの同期に失敗したニャ…（通信を確認してほしいニャ）", true);
       }
     }
   }, [browserAnonId]);
@@ -1041,7 +1047,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       if (activeTab === "doodle") {
         const firstFile = newPostImageFiles[0];
         if (!firstFile) {
-          setToastMessage("ギャラリー投稿には画像が必要だニャ！");
+          showToast("ギャラリー投稿には画像が必要だニャ！", true);
           return;
         }
         const ext = getFileExtension(firstFile.name, firstFile.type);
@@ -1050,7 +1056,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           .from(SUPABASE_GALLERY_BUCKET)
           .upload(path, firstFile, { cacheControl: "3600", upsert: false });
         if (uploadRes.error) {
-          setToastMessage("画像アップロードに失敗したニャ...");
+          showToast(`投稿に失敗したニャ！（画像アップロード: ${uploadRes.error.message}）`, true);
           return;
         }
         const { data: publicData } = supabase.storage.from(SUPABASE_GALLERY_BUCKET).getPublicUrl(path);
@@ -1067,7 +1073,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           .single();
 
         if (insertRes.error || !insertRes.data) {
-          setToastMessage("ギャラリー投稿の保存に失敗したニャ...");
+          showToast(`投稿に失敗したニャ！（DB保存: ${insertRes.error?.message ?? "データなし"}）`, true);
           return;
         }
         const row = insertRes.data as GalleryRow;
@@ -1084,7 +1090,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
             upsert: false,
           });
           if (uploadRes.error) {
-            setToastMessage("画像アップロードに失敗したニャ...");
+            showToast(`投稿に失敗したニャ！（画像${i + 1}枚目: ${uploadRes.error.message}）`, true);
             return;
           }
           const { data: pub } = supabase.storage.from(SUPABASE_GALLERY_BUCKET).getPublicUrl(path);
@@ -1109,7 +1115,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         });
 
         if (insertRes.error || !insertRes.data) {
-          setToastMessage("ニャード投稿の保存に失敗したニャ...");
+          showToast(`投稿に失敗したニャ！（DB保存: ${insertRes.error?.message ?? "データなし"}）`, true);
           return;
         }
 
@@ -1134,8 +1140,9 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       setNewPostImageFiles([]);
       setIsComposerOpen(false);
       setActiveTab(activeTab === "doodle" ? "doodle" : "sns");
-    } catch {
-      setToastMessage("投稿処理に失敗したニャ...");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "原因不明";
+      showToast(`投稿に失敗したニャ！（${msg}）`, true);
     }
   };
 
@@ -1217,7 +1224,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       setLikedPosts(prevLiked);
       setFeedLikeCounts(prevCounts);
       setFeedComments(prevComments);
-      setToastMessage("投稿の削除に失敗したニャ...");
+      showToast("投稿の削除に失敗したニャ...", true);
     }
   };
 
@@ -1250,7 +1257,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     });
 
     if (insertRes.error || !insertRes.data) {
-      setToastMessage("コメントの保存に失敗したニャ...");
+      showToast("コメントの保存に失敗したニャ...", true);
       return;
     }
 
@@ -1281,7 +1288,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     const { error } = await deleteSnsPostComment(supabase, postId, commentId);
     if (error) {
       setFeedComments(prevComments);
-      setToastMessage("コメント削除に失敗したニャ...");
+      showToast("コメント削除に失敗したニャ...", true);
     }
   };
 
@@ -1310,7 +1317,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     const { error } = await supabase.from("gallery_posts").delete().eq("id", id);
     if (error) {
       setDoodlePosts(prevPosts);
-      setToastMessage("ギャラリー投稿の削除に失敗したニャ...");
+      showToast("ギャラリー投稿の削除に失敗したニャ...", true);
       return;
     }
     setDoodleLiked((prev) => {
@@ -1360,7 +1367,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     } catch {
       setDoodleLiked((prev) => ({ ...prev, [id]: currentlyLiked }));
       setDoodleLikeCounts((prev) => ({ ...prev, [id]: currentCount }));
-      setToastMessage("いいね保存に失敗したニャ...");
+      showToast("いいね保存に失敗したニャ...", true);
     }
   };
 
@@ -1395,7 +1402,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       .single();
 
     if (insertRes.error || !insertRes.data) {
-      setToastMessage("コメント保存に失敗したニャ...");
+      showToast("コメント保存に失敗したニャ...", true);
       return;
     }
 
@@ -1416,7 +1423,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
     if (!file) return;
     // TODO(video): Supabase連携後に動画プレビュー/保存を有効化する
     if (file.type.startsWith("video/")) {
-      setToastMessage("動画投稿は準備中ニャ。今は画像のみ対応してるニャ！");
+      showToast("動画投稿は準備中ニャ。今は画像のみ対応してるニャ！");
       return;
     }
     const reader = new FileReader();
@@ -1429,7 +1436,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         setStoryTool("none");
       }
     };
-    reader.onerror = () => setToastMessage("ストーリー素材の読み込みに失敗したニャ...");
+    reader.onerror = () => showToast("ストーリー素材の読み込みに失敗したニャ...", true);
     reader.readAsDataURL(file);
   };
 
@@ -1646,11 +1653,11 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         setStoryLayers([]);
         setActiveStoryLayerId(null);
         setStoryTool("none");
-        setToastMessage("編集内容を画像に合成したニャ！");
+        showToast("編集内容を画像に合成したニャ！");
       }
       return composedDataUrl;
     } catch {
-      setToastMessage("ストーリー編集の合成に失敗したニャ...");
+      showToast("ストーリー編集の合成に失敗したニャ...", true);
       return null;
     }
   };
@@ -1674,7 +1681,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         .upload(path, blob, { cacheControl: "3600", upsert: false, contentType: blob.type || "image/jpeg" });
 
       if (uploadRes.error) {
-        setToastMessage("ストーリー画像のアップロードに失敗したニャ...");
+        showToast("ストーリー画像のアップロードに失敗したニャ...", true);
         return;
       }
 
@@ -1694,7 +1701,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         .single();
 
       if (insertRes.error || !insertRes.data) {
-        setToastMessage("ストーリー保存に失敗したニャ...");
+        showToast("ストーリー保存に失敗したニャ...", true);
         return;
       }
 
@@ -1707,7 +1714,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       setStoryTool("none");
       setIsStoryComposerOpen(false);
     } catch {
-      setToastMessage("ストーリー投稿に失敗したニャ...");
+      showToast("ストーリー投稿に失敗したニャ...", true);
     }
   };
 
@@ -1856,7 +1863,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         setNewPostImageFiles(files);
       })
       .catch(() => {
-        setToastMessage("画像の読み込みに失敗したニャ...");
+        showToast("画像の読み込みに失敗したニャ...", true);
       });
   };
 
@@ -2376,7 +2383,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                 </button>
                 <button
                   type="button"
-                  onClick={() => shareBshPost(setToastMessage)}
+                  onClick={() => shareBshPost(showToast)}
                   className={
                     isLounge
                       ? "touch-manipulation text-bsh-ivory/85 transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
@@ -2965,7 +2972,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                         </button>
                         <button
                           type="button"
-                          onClick={() => shareBshPost(setToastMessage)}
+                          onClick={() => shareBshPost(showToast)}
                           className={
                             isLounge
                               ? "transition-opacity duration-300 ease-out active:text-bsh-gold active:opacity-90"
@@ -3322,7 +3329,17 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
       )}
 
       {toastMessage && (
-        <div className="pointer-events-none fixed left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#4A4A4A]/90 px-3 py-1.5 text-[11px] font-bold text-[#FFF8EE] shadow-lg bottom-[calc(6.25rem+env(safe-area-inset-bottom,0px))]">
+        <div
+          className={`pointer-events-none fixed left-1/2 z-[60] max-w-[85vw] -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-[11px] font-bold shadow-lg transition-colors duration-300 ease-out bottom-[calc(6.25rem+env(safe-area-inset-bottom,0px))] ${
+            toastIsError
+              ? isLounge
+                ? "border border-bsh-bordeaux bg-bsh-bordeaux/95 text-bsh-ivory shadow-[0_8px_24px_-8px_rgba(107,31,46,0.65)]"
+                : "bg-[#C62828]/90 text-white"
+              : isLounge
+                ? "border border-bsh-gold/40 bg-bsh-graphite/95 text-bsh-gold shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
+                : "bg-[#4A4A4A]/90 text-[#FFF8EE]"
+          }`}
+        >
           {toastMessage}
         </div>
       )}
