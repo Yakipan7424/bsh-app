@@ -51,7 +51,7 @@ export function BottomNav() {
       <nav
         className={
           isV2
-            ? "pointer-events-auto relative flex min-h-[1.85rem] items-center justify-between rounded-full border border-bsh-gold/20 bg-gradient-to-r from-bsh-noir/95 via-bsh-velvet to-bsh-noir/95 px-2 py-0.5 shadow-[0_12px_32px_-10px_rgba(0,0,0,0.75)] backdrop-blur-md transition-colors duration-300 ease-out"
+            ? "bsh-bottom-nav pointer-events-auto relative flex min-h-[1.85rem] items-center justify-between rounded-full px-2 py-0.5 transition-colors duration-300 ease-out"
             : "pointer-events-auto relative flex min-h-[2rem] items-center justify-between rounded-full bg-[#607D8B] px-2.5 py-0.5 shadow-xl"
         }
       >
@@ -93,7 +93,7 @@ export function BottomNav() {
           scroll={false}
           className={
             isV2
-              ? "absolute left-1/2 top-1/2 z-20 flex min-h-8 min-w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-bsh-gold/50 bg-gradient-to-br from-bsh-wine to-bsh-bordeaux p-0.5 shadow-[0_4px_16px_-4px_rgba(90,20,30,0.6)] transition-all duration-300 ease-out active:opacity-85"
+              ? "bsh-nav-center-btn absolute left-1/2 top-1/2 z-20 flex min-h-8 min-w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full p-0.5"
               : "absolute left-1/2 top-1/2 z-20 flex min-h-9 min-w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#FAF9F6] bg-[#7A93A0] p-1 transition-all active:scale-95"
           }
           aria-label="投稿を作成"

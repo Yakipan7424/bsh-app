@@ -2519,7 +2519,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                       key={comment.id}
                       className={
                         isLounge
-                          ? "ml-1.5 rounded-xl border border-bsh-gold/20 bg-bsh-noir/50 px-1.5 py-0.5"
+                          ? "bsh-comment-box ml-1.5 px-1.5 py-0.5"
                           : "ml-1.5 rounded-md bg-[#FFFCF7] px-1.5 py-0.5"
                       }
                     >
@@ -2817,7 +2817,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                             key={comment.id}
                             className={
                               isLounge
-                                ? "ml-3 rounded-xl border border-bsh-gold/22 bg-bsh-noir/45 px-2 py-1"
+                                ? "bsh-comment-box ml-3 px-2 py-1"
                                 : "ml-3 rounded-md border border-[#D4A373]/35 bg-[#FFFDF8] px-2 py-1"
                             }
                           >
@@ -3118,7 +3118,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                               key={comment.id}
                               className={
                                 isLounge
-                                  ? "ml-1.5 rounded-xl border border-bsh-gold/18 bg-bsh-noir/50 px-1.5 py-0.5"
+                                  ? "bsh-comment-box ml-1.5 px-1.5 py-0.5"
                                   : "ml-1.5 rounded-md bg-[#FFF8EE] px-1.5 py-0.5"
                               }
                             >
@@ -3410,7 +3410,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   key={comment.id}
                   className={
                     isLounge
-                      ? "rounded-xl border border-bsh-gold/20 bg-bsh-noir/50 px-2 py-1.5"
+                      ? "bsh-comment-box px-2 py-1.5"
                       : "rounded-md border border-[#D4A373]/35 bg-[#FFFCF7] px-2 py-1.5"
                   }
                 >

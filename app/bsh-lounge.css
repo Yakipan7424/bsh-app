@@ -1,4 +1,5 @@
 /* BSH Times /v2 — Wine & Velvet プレミアムラウンジ */
+/* 「磨き上げられた高級車のダッシュボード」「漆塗りの小箱」 */
 
 .bg-lounge-night {
   background-color: #0a0a0a;
@@ -12,7 +13,7 @@
     linear-gradient(180deg, #0a0a0a 0%, #0d0608 40%, #0a0a0a 100%);
 }
 
-/* ─── Card: 宝石のようなボルドー×漆黒 ─── */
+/* ═══ Card: 宝石のようなボルドー×漆黒 ═══ */
 .bsh-lounge-card {
   position: relative;
   border-radius: 10px;
@@ -22,7 +23,6 @@
               box-shadow 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
               border-color 0.35s ease;
 }
-
 .bsh-lounge-card:hover {
   transform: translateY(-3px) scale(1.008);
   border-color: rgba(191, 161, 115, 0.45);
@@ -45,7 +45,6 @@
   z-index: 2;
 }
 
-/* Sheen highlight — jewel-like top glow */
 .bsh-lounge-card::after {
   content: "";
   pointer-events: none;
@@ -59,12 +58,10 @@
   transition: opacity 0.35s ease;
   z-index: 2;
 }
-
 .bsh-lounge-card:hover::after {
   opacity: 1.5;
 }
 
-/* Surface: top-to-bottom jewel gradient */
 .bsh-lounge-card-surface {
   background: linear-gradient(
     180deg,
@@ -76,7 +73,76 @@
   );
 }
 
-/* ─── Update button — premium gold pill ─── */
+/* ═══ Comment box: エナメル / 漆塗り質感 ═══ */
+.bsh-comment-box {
+  position: relative;
+  border: 1px solid rgba(191, 161, 115, 0.32);
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 35%,
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      #1a080c 0%,
+      #100408 50%,
+      #0a0204 100%
+    );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+    0 3px 10px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* ═══ Bottom nav: 漆黒ダッシュボード ═══ */
+.bsh-bottom-nav {
+  background:
+    linear-gradient(
+      180deg,
+      #1a0e12 0%,
+      #0e0608 40%,
+      #080304 100%
+    );
+  border: 1px solid rgba(191, 161, 115, 0.15);
+  border-top-color: rgba(191, 161, 115, 0.45);
+  box-shadow:
+    0 -1px 0 0 rgba(191, 161, 115, 0.25),
+    0 12px 32px -10px rgba(0, 0, 0, 0.80),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ═══ Nav center button: ぷっくり ═══ */
+.bsh-nav-center-btn {
+  background: linear-gradient(
+    180deg,
+    #6b1d2a 0%,
+    #4a0a1e 50%,
+    #2a0510 100%
+  );
+  border: 1px solid rgba(191, 161, 115, 0.50);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.20),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.35),
+    0 4px 16px -4px rgba(58, 3, 21, 0.65),
+    0 0 8px -2px rgba(191, 161, 115, 0.10);
+  transition: all 0.3s ease;
+}
+.bsh-nav-center-btn:hover {
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.28),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.35),
+    0 6px 20px -4px rgba(58, 3, 21, 0.70),
+    0 0 12px -2px rgba(191, 161, 115, 0.18);
+  transform: translateY(-1px);
+}
+.bsh-nav-center-btn:active {
+  transform: scale(0.95);
+}
+
+/* ═══ Update button — premium gold pill ═══ */
 .bsh-update-btn {
   position: relative;
   background: linear-gradient(
@@ -109,7 +175,7 @@
   transform: translateY(0) scale(0.97);
 }
 
-/* ─── Glassmorphism button ─── */
+/* ═══ Glass button ═══ */
 .bsh-glass-btn {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
   backdrop-filter: blur(8px);
@@ -125,7 +191,7 @@
   transform: scale(0.97);
 }
 
-/* ─── Sheen animation ─── */
+/* ═══ Sheen animation ═══ */
 @keyframes bshSheen {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
