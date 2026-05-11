@@ -1976,31 +1976,54 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
       {isUpdateModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center px-4 animate-[modalFadeIn_220ms_ease-out]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 animate-[modalFadeIn_220ms_ease-out]"
           onClick={() => setIsUpdateModalOpen(false)}
           role="dialog"
           aria-modal="true"
           aria-label="更新履歴"
         >
           <div
-            className="w-full max-w-md max-h-[86vh] overflow-y-auto rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-4 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            className={
+              isLounge
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[86vh] overflow-y-auto rounded-[4px] p-4 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-md max-h-[86vh] overflow-y-auto rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-4 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            }
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-[#607D8B]">Update History</h2>
+              <h2
+                className={
+                  isLounge
+                    ? "font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-base font-semibold tracking-wide text-bsh-gold"
+                    : "text-base font-bold text-[#607D8B]"
+                }
+              >
+                Update History
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsUpdateModalOpen(false)}
-                className="rounded-full border border-[#607D8B] px-2 py-0.5 text-[11px] font-bold text-[#607D8B]"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-gold/40 px-2 py-0.5 text-[11px] font-semibold text-bsh-gold transition-opacity duration-300 ease-out hover:opacity-85"
+                    : "rounded-full border border-[#607D8B] px-2 py-0.5 text-[11px] font-bold text-[#607D8B]"
+                }
               >
                 閉じる
               </button>
             </div>
             <div className="space-y-3">
               {UPDATE_LOGS.map((log) => (
-                <section key={log.date} className="rounded-xl border border-[#D4A373] bg-[#FFFCF7] px-3 py-2">
-                  <p className="text-xs font-bold text-[#607D8B]">{log.date}</p>
-                  <ul className="mt-1 space-y-1 text-[11px] leading-snug text-[#4A4A4A]">
+                <section
+                  key={log.date}
+                  className={
+                    isLounge
+                      ? "rounded-[4px] border border-bsh-gold/25 bg-bsh-noir/50 px-3 py-2"
+                      : "rounded-xl border border-[#D4A373] bg-[#FFFCF7] px-3 py-2"
+                  }
+                >
+                  <p className={isLounge ? "text-xs font-semibold text-bsh-amber" : "text-xs font-bold text-[#607D8B]"}>{log.date}</p>
+                  <ul className={isLounge ? "mt-1 space-y-1 text-[11px] leading-snug text-bsh-ivory/90" : "mt-1 space-y-1 text-[11px] leading-snug text-[#4A4A4A]"}>
                     {log.items.map((item) => (
                       <li key={item}>・{item}</li>
                     ))}
@@ -2152,7 +2175,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
         </div>
       </section>
 
-      <main className="px-0 pb-12 pt-3">
+      <main className={isLounge ? "px-0 pb-12 pt-3" : "px-0 pb-12 pt-3"}>
         {/* SNS FEED */}
         {activeTab === "sns" &&
           feedPosts.map((post) => (
@@ -3117,7 +3140,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
       {isThreadComposerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center px-4 animate-[modalFadeIn_220ms_ease-out]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 animate-[modalFadeIn_220ms_ease-out]"
           onClick={() => {
             setIsThreadComposerOpen(false);
             setNewThreadText("");
@@ -3127,31 +3150,55 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           aria-label="NYAT投稿"
         >
           <div
-            className="w-full max-w-sm bg-[#FFF8EE] border-2 border-[#607D8B] rounded-2xl p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            className={
+              isLounge
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-sm rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            }
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-bold text-[#607D8B] mb-2">NYATを投稿</h2>
+            <h2
+              className={
+                isLounge
+                  ? "mb-2 font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-base font-semibold text-bsh-gold"
+                  : "mb-2 text-base font-bold text-[#607D8B]"
+              }
+            >
+              NYATを投稿
+            </h2>
             <textarea
               value={newThreadText}
               onChange={(e) => setNewThreadText(e.target.value)}
               placeholder="今なにしてるニャ？ 猫の独り言を投稿するニャ"
-              className="w-full h-28 resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
+              className={
+                isLounge
+                  ? "h-28 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  : "h-28 w-full resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
+              }
             />
-            <div className="flex justify-end gap-1.5 mt-3">
+            <div className="mt-3 flex justify-end gap-1.5">
               <button
                 type="button"
                 onClick={() => {
                   setIsThreadComposerOpen(false);
                   setNewThreadText("");
                 }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-bold border border-[#607D8B] text-[#607D8B] bg-white"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-gold/40 px-3 py-1.5 text-[11px] font-semibold text-bsh-gold transition-opacity duration-300 ease-out hover:opacity-85"
+                    : "rounded-full border border-[#607D8B] bg-white px-3 py-1.5 text-[11px] font-bold text-[#607D8B]"
+                }
               >
                 閉じる
               </button>
               <button
                 type="button"
                 onClick={submitThread}
-                className="px-3.5 py-1.5 rounded-full text-[11px] font-bold bg-[#E56B6F] text-white disabled:opacity-50"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-3.5 py-1.5 text-[11px] font-semibold text-bsh-ivory transition-opacity duration-300 ease-out disabled:opacity-50 hover:opacity-90"
+                    : "rounded-full bg-[#E56B6F] px-3.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
+                }
                 disabled={!newThreadText.trim()}
               >
                 投稿する
@@ -3163,7 +3210,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
       {commentTargetThreadId !== null && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center px-4 animate-[modalFadeIn_220ms_ease-out]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 animate-[modalFadeIn_220ms_ease-out]"
           onClick={() => {
             setCommentTargetThreadId(null);
             setNewCommentText("");
@@ -3173,31 +3220,47 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           aria-label="NYATコメント"
         >
           <div
-            className="w-full max-w-sm bg-[#FFF8EE] border-2 border-[#607D8B] rounded-2xl p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            className={
+              isLounge
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-sm rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            }
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-bold text-[#607D8B] mb-2">コメントする</h2>
+            <h2 className={isLounge ? "mb-2 text-base font-semibold text-bsh-gold" : "mb-2 text-base font-bold text-[#607D8B]"}>コメントする</h2>
             <textarea
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
               placeholder="コメントを書くニャ..."
-              className="w-full h-24 resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
+              className={
+                isLounge
+                  ? "h-24 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  : "h-24 w-full resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
+              }
             />
-            <div className="flex justify-end gap-1.5 mt-3">
+            <div className="mt-3 flex justify-end gap-1.5">
               <button
                 type="button"
                 onClick={() => {
                   setCommentTargetThreadId(null);
                   setNewCommentText("");
                 }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-bold border border-[#607D8B] text-[#607D8B] bg-white"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-gold/40 px-3 py-1.5 text-[11px] font-semibold text-bsh-gold hover:opacity-85"
+                    : "rounded-full border border-[#607D8B] bg-white px-3 py-1.5 text-[11px] font-bold text-[#607D8B]"
+                }
               >
                 閉じる
               </button>
               <button
                 type="button"
                 onClick={submitThreadComment}
-                className="px-3.5 py-1.5 rounded-full text-[11px] font-bold bg-[#E56B6F] text-white disabled:opacity-50"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-3.5 py-1.5 text-[11px] font-semibold text-bsh-ivory disabled:opacity-50 hover:opacity-90"
+                    : "rounded-full bg-[#E56B6F] px-3.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
+                }
                 disabled={!newCommentText.trim()}
               >
                 投稿する
@@ -3209,48 +3272,67 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
       {feedCommentsModalPostId !== null && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center px-4 animate-[modalFadeIn_220ms_ease-out]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 animate-[modalFadeIn_220ms_ease-out]"
           onClick={() => setFeedCommentsModalPostId(null)}
           role="dialog"
           aria-modal="true"
           aria-label="SNSコメント一覧"
         >
           <div
-            className="w-full max-w-sm max-h-[78vh] overflow-y-auto bg-[#FFF8EE] border-2 border-[#607D8B] rounded-2xl p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            className={
+              isLounge
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm max-h-[78vh] overflow-y-auto rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-sm max-h-[78vh] overflow-y-auto rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            }
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-bold text-[#607D8B]">すべてのコメント</h2>
+              <h2 className={isLounge ? "text-base font-semibold text-bsh-gold" : "text-base font-bold text-[#607D8B]"}>すべてのコメント</h2>
               <button
                 type="button"
                 onClick={() => setFeedCommentsModalPostId(null)}
-                className="rounded-full border border-[#607D8B] px-2 py-0.5 text-[11px] font-bold text-[#607D8B]"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-gold/40 px-2 py-0.5 text-[11px] font-semibold text-bsh-gold hover:opacity-85"
+                    : "rounded-full border border-[#607D8B] px-2 py-0.5 text-[11px] font-bold text-[#607D8B]"
+                }
               >
                 閉じる
               </button>
             </div>
             <div className="space-y-1.5">
               {(feedComments[feedCommentsModalPostId] ?? []).map((comment) => (
-                <div key={comment.id} className="rounded-md border border-[#D4A373]/35 bg-[#FFFCF7] px-2 py-1.5">
+                <div
+                  key={comment.id}
+                  className={
+                    isLounge
+                      ? "rounded-[4px] border border-bsh-gold/20 bg-bsh-noir/50 px-2 py-1.5"
+                      : "rounded-md border border-[#D4A373]/35 bg-[#FFFCF7] px-2 py-1.5"
+                  }
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-[10px] font-bold text-[#607D8B]">{comment.user}</p>
+                    <p className={isLounge ? "truncate text-[10px] font-semibold text-bsh-ivory" : "truncate text-[10px] font-bold text-[#607D8B]"}>{comment.user}</p>
                     <button
                       type="button"
                       onClick={() => removeFeedComment(feedCommentsModalPostId, comment.id)}
-                      className="h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/30 text-[10px] leading-none text-[#607D8B]/65"
+                      className={
+                        isLounge
+                          ? "h-4 w-4 shrink-0 rounded-full border border-bsh-gold/25 text-[10px] leading-none text-bsh-ivory/65"
+                          : "h-4 w-4 shrink-0 rounded-full border border-[#607D8B]/30 text-[10px] leading-none text-[#607D8B]/65"
+                      }
                       aria-label="コメントを削除"
                     >
                       ×
                     </button>
                   </div>
-                  <p className="text-[9px] text-[#7D7D7D]">
+                  <p className={isLounge ? "text-[9px] text-bsh-amber/80" : "text-[9px] text-[#7D7D7D]"}>
                     {formatNyatTime(comment.createdAt, "たった今")} · ID:{comment.anonId ?? "GUEST00"}
                   </p>
-                  <p className="text-[10px] leading-snug text-[#4A4A4A]">{comment.text}</p>
+                  <p className={isLounge ? "text-[10px] leading-snug text-bsh-ivory/90" : "text-[10px] leading-snug text-[#4A4A4A]"}>{comment.text}</p>
                 </div>
               ))}
               {(feedComments[feedCommentsModalPostId] ?? []).length === 0 && (
-                <p className="text-[11px] text-[#607D8B]">コメントはまだないニャ。</p>
+                <p className={isLounge ? "text-[11px] text-bsh-ivory/65" : "text-[11px] text-[#607D8B]"}>コメントはまだないニャ。</p>
               )}
             </div>
           </div>
@@ -3259,7 +3341,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
       {doodleCommentTargetId !== null && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center px-4 animate-[modalFadeIn_220ms_ease-out]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 animate-[modalFadeIn_220ms_ease-out]"
           onClick={() => {
             setDoodleCommentTargetId(null);
             setNewDoodleCommentText("");
@@ -3269,31 +3351,47 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           aria-label="落書きコメント"
         >
           <div
-            className="w-full max-w-sm bg-[#FFF8EE] border-2 border-[#607D8B] rounded-2xl p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            className={
+              isLounge
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-sm rounded-[4px] p-3.5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-sm rounded-2xl border-2 border-[#607D8B] bg-[#FFF8EE] p-3.5 shadow-xl animate-[modalZoomIn_260ms_ease-out]"
+            }
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-bold text-[#607D8B] mb-2">落書きにコメント</h2>
+            <h2 className={isLounge ? "mb-2 text-base font-semibold text-bsh-gold" : "mb-2 text-base font-bold text-[#607D8B]"}>落書きにコメント</h2>
             <textarea
               value={newDoodleCommentText}
               onChange={(e) => setNewDoodleCommentText(e.target.value)}
               placeholder="この作品の感想を書くニャ..."
-              className="w-full h-24 resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
+              className={
+                isLounge
+                  ? "h-24 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-2.5 text-xs leading-snug text-bsh-ivory outline-none placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  : "h-24 w-full resize-none rounded-xl border border-[#D4A373] bg-[#FFFCF7] p-2.5 text-xs leading-snug outline-none focus:border-[#607D8B]"
+              }
             />
-            <div className="flex justify-end gap-1.5 mt-3">
+            <div className="mt-3 flex justify-end gap-1.5">
               <button
                 type="button"
                 onClick={() => {
                   setDoodleCommentTargetId(null);
                   setNewDoodleCommentText("");
                 }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-bold border border-[#607D8B] text-[#607D8B] bg-white"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-gold/40 px-3 py-1.5 text-[11px] font-semibold text-bsh-gold hover:opacity-85"
+                    : "rounded-full border border-[#607D8B] bg-white px-3 py-1.5 text-[11px] font-bold text-[#607D8B]"
+                }
               >
                 閉じる
               </button>
               <button
                 type="button"
                 onClick={submitDoodleComment}
-                className="px-3.5 py-1.5 rounded-full text-[11px] font-bold bg-[#E56B6F] text-white disabled:opacity-50"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-3.5 py-1.5 text-[11px] font-semibold text-bsh-ivory disabled:opacity-50 hover:opacity-90"
+                    : "rounded-full bg-[#E56B6F] px-3.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
+                }
                 disabled={!newDoodleCommentText.trim()}
               >
                 投稿する
@@ -3563,7 +3661,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
 
       {isComposerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center px-4 animate-[modalFadeIn_220ms_ease-out]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 animate-[modalFadeIn_220ms_ease-out]"
           onClick={() => {
             setIsComposerOpen(false);
             setNewPostImages([]);
@@ -3574,13 +3672,23 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
           aria-label="投稿作成"
         >
           <div
-            className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-[#FFF8EE] border-4 border-[#607D8B] rounded-[26px] p-5 shadow-2xl animate-[modalZoomIn_260ms_ease-out]"
+            className={
+              isLounge
+                ? "bsh-lounge-card bsh-lounge-card-surface w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[4px] p-5 shadow-[0_14px_36px_-14px_rgba(107,31,46,0.6)] animate-[modalZoomIn_260ms_ease-out]"
+                : "w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[26px] border-4 border-[#607D8B] bg-[#FFF8EE] p-5 shadow-2xl animate-[modalZoomIn_260ms_ease-out]"
+            }
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-[#607D8B] mb-3">
+            <h2
+              className={
+                isLounge
+                  ? "mb-3 font-[family-name:var(--font-bsh-playfair),ui-serif,Georgia,serif] text-xl font-semibold text-bsh-gold"
+                  : "mb-3 text-xl font-bold text-[#607D8B]"
+              }
+            >
               {activeTab === "doodle" ? "新しい落書き投稿" : "新しい投稿"}
             </h2>
-            <label className="block mb-3 cursor-pointer">
+            <label className="mb-3 block cursor-pointer">
               <input
                 type="file"
                 accept="image/*"
@@ -3588,14 +3696,24 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                 multiple
                 className="hidden"
               />
-              <div className="flex w-full items-center justify-center rounded-xl border border-dashed border-[#D4A373] bg-[#FFFCF7] px-3 py-2.5 text-center text-xs font-bold text-[#607D8B] transition-colors hover:bg-[#FFF5E8]">
+              <div
+                className={
+                  isLounge
+                    ? "flex w-full items-center justify-center rounded-[4px] border border-dashed border-bsh-gold/40 bg-bsh-noir/40 px-3 py-2.5 text-center text-xs font-semibold text-bsh-gold transition-colors duration-300 ease-out hover:bg-bsh-noir/60"
+                    : "flex w-full items-center justify-center rounded-xl border border-dashed border-[#D4A373] bg-[#FFFCF7] px-3 py-2.5 text-center text-xs font-bold text-[#607D8B] transition-colors hover:bg-[#FFF5E8]"
+                }
+              >
                 {activeTab === "doodle" ? "描いた絵の画像を選択する" : "画像を選択する（最大4枚）"}
               </div>
             </label>
             <button
               type="button"
               disabled
-              className="mb-3 flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-dashed border-[#B7C9D1] bg-[#F5F8FA] px-3 py-2.5 text-center text-xs font-bold text-[#7F98A5] opacity-85"
+              className={
+                isLounge
+                  ? "mb-3 flex w-full cursor-not-allowed items-center justify-center rounded-[4px] border border-dashed border-bsh-ivory/20 bg-bsh-noir/25 px-3 py-2.5 text-center text-xs font-semibold text-bsh-ivory/40 opacity-85"
+                  : "mb-3 flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-dashed border-[#B7C9D1] bg-[#F5F8FA] px-3 py-2.5 text-center text-xs font-bold text-[#7F98A5] opacity-85"
+              }
               aria-label="動画をアップロード（準備中）"
             >
               動画をアップロード（準備中）
@@ -3606,7 +3724,11 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   <img
                     src={newPostImages[0]}
                     alt="選択した画像プレビュー"
-                    className="h-[min(52vh,360px)] min-h-[220px] w-full rounded-2xl border-2 border-[#D4A373] object-cover"
+                    className={
+                      isLounge
+                        ? "h-[min(52vh,360px)] min-h-[220px] w-full rounded-[4px] border border-bsh-gold/35 object-cover"
+                        : "h-[min(52vh,360px)] min-h-[220px] w-full rounded-2xl border-2 border-[#D4A373] object-cover"
+                    }
                   />
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
@@ -3615,7 +3737,11 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                         key={`preview-${idx}`}
                         src={src}
                         alt={`選択画像 ${idx + 1}`}
-                        className="h-28 w-full rounded-xl border-2 border-[#D4A373] object-cover"
+                        className={
+                          isLounge
+                            ? "h-28 w-full rounded-[4px] border border-bsh-gold/35 object-cover"
+                            : "h-28 w-full rounded-xl border-2 border-[#D4A373] object-cover"
+                        }
                       />
                     ))}
                   </div>
@@ -3626,9 +3752,13 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               value={newPostMessage}
               onChange={(e) => setNewPostMessage(e.target.value)}
               placeholder={activeTab === "doodle" ? "作品タイトルや一言を添えよう..." : "今日のねこ日記を書いてみよう..."}
-              className="w-full h-36 resize-none rounded-2xl border-2 border-[#D4A373] bg-[#FFFCF7] p-4 text-sm outline-none focus:border-[#607D8B]"
+              className={
+                isLounge
+                  ? "h-36 w-full resize-none rounded-[4px] border border-bsh-gold/35 bg-bsh-noir/60 p-4 text-sm text-bsh-ivory outline-none transition-colors duration-300 ease-out placeholder:text-bsh-ivory/35 focus:border-bsh-gold/55"
+                  : "h-36 w-full resize-none rounded-2xl border-2 border-[#D4A373] bg-[#FFFCF7] p-4 text-sm outline-none focus:border-[#607D8B]"
+              }
             />
-            <div className="flex justify-end gap-2 mt-4">
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -3636,14 +3766,22 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   setNewPostImages([]);
                   setNewPostImageFiles([]);
                 }}
-                className="px-4 py-2 rounded-full text-sm font-bold border-2 border-[#607D8B] text-[#607D8B] bg-white"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-gold/40 px-4 py-2 text-sm font-semibold text-bsh-gold transition-opacity duration-300 ease-out hover:opacity-85"
+                    : "rounded-full border-2 border-[#607D8B] bg-white px-4 py-2 text-sm font-bold text-[#607D8B]"
+                }
               >
                 閉じる
               </button>
               <button
                 type="button"
                 onClick={submitPost}
-                className="px-5 py-2 rounded-full text-sm font-bold bg-[#E56B6F] text-white disabled:opacity-50"
+                className={
+                  isLounge
+                    ? "rounded-full border border-bsh-bordeaux bg-bsh-bordeaux/90 px-5 py-2 text-sm font-semibold text-bsh-ivory transition-opacity duration-300 ease-out disabled:opacity-50 hover:opacity-90"
+                    : "rounded-full bg-[#E56B6F] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+                }
                 disabled={!newPostMessage.trim() || (activeTab === "doodle" && newPostImageFiles.length === 0)}
               >
                 投稿する
