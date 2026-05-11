@@ -2266,14 +2266,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               key={post.id}
               className={
                 isLounge
-                  ? "bsh-lounge-card bsh-lounge-card-surface relative z-0 mx-3 mb-5 overflow-hidden rounded-xl shadow-[0_16px_40px_-12px_rgba(90,20,30,0.5),0_8px_20px_-8px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out"
+                  ? "bsh-lounge-card bsh-lounge-card-surface relative z-0 mx-3 mb-5 overflow-hidden rounded-xl shadow-[0_20px_50px_-10px_rgba(58,3,21,0.7),0_10px_24px_-6px_rgba(0,0,0,0.7)] transition-all duration-300 ease-out"
                   : "mb-5 overflow-hidden border-y-2 border-[#4A4A4A] bg-white shadow-[0_6px_0_0_rgba(212,163,115,0.35)]"
               }
             >
               <div
                 className={
                   isLounge
-                    ? "flex items-start justify-between gap-2 border-b border-bsh-gold/15 bg-bsh-noir/40 px-3 py-2 backdrop-blur-sm"
+                    ? "flex items-start justify-between gap-2 border-b border-[#BFA173]/20 bg-black/30 px-3 py-2"
                     : "flex items-start justify-between gap-2 border-b-2 border-[#FAF9F6] px-3 py-1.5"
                 }
                 style={isLounge ? undefined : SNS_PAW_STAMP_BG}
@@ -2284,7 +2284,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     <span
                       className={
                         isLounge
-                          ? "block text-[11px] font-semibold leading-none text-bsh-ivory"
+                          ? "block text-[11px] font-semibold leading-none text-[#D9C0A3]"
                           : "block text-[11px] font-bold leading-none text-[#607D8B]"
                       }
                     >
@@ -2293,7 +2293,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     <span
                       className={
                         isLounge
-                          ? "block text-[8px] leading-none text-bsh-amber/90"
+                          ? "block text-[8px] leading-none text-[#BFA173]/80"
                           : "block text-[8px] leading-none text-[#7D7D7D]"
                       }
                     >
@@ -2305,7 +2305,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   <span
                     className={
                       isLounge
-                        ? "text-[8px] leading-none text-bsh-gold/70"
+                        ? "text-[8px] leading-none text-[#BFA173]/60"
                         : "text-[8px] leading-none text-[#8A8A8A]"
                     }
                   >
@@ -2465,7 +2465,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   <span
                     className={
                       isLounge
-                        ? "text-[10px] font-semibold leading-none text-bsh-amber/85"
+                        ? "text-[10px] font-semibold leading-none text-[#BFA173]/80"
                         : "text-[10px] font-bold leading-none text-[#6C5A49]"
                     }
                   >
@@ -2503,11 +2503,11 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
               <p
                 className={
                   isLounge
-                    ? "text-[12px] leading-relaxed text-bsh-ivory/95"
+                    ? "text-[12px] leading-relaxed text-[#D9C0A3]/90"
                     : "text-[12px] leading-snug"
                 }
               >
-                <span className={isLounge ? "font-semibold text-bsh-ivory" : "font-bold text-[#607D8B]"}>
+                <span className={isLounge ? "font-semibold text-[#D9C0A3]" : "font-bold text-[#607D8B]"}>
                   {post.user}
                 </span>{" "}
                 {post.content}
@@ -2683,14 +2683,14 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                 <div
                   className={
                     isLounge
-                      ? "bsh-lounge-card bsh-lounge-card-surface relative rounded-xl px-2.5 py-2 shadow-[0_14px_32px_-12px_rgba(90,20,30,0.45),0_6px_14px_-6px_rgba(0,0,0,0.5)]"
+                      ? "bsh-lounge-card bsh-lounge-card-surface relative rounded-xl px-2.5 py-2 shadow-[0_18px_45px_-10px_rgba(58,3,21,0.65),0_8px_20px_-6px_rgba(0,0,0,0.6)]"
                       : "relative rounded-lg border border-[#607D8B] bg-[#FEF9EF] px-2.5 py-2 shadow-sm"
                   }
                 >
                   <div
                     className={
                       isLounge
-                        ? "mb-1 flex items-start justify-between gap-2 font-semibold text-bsh-ivory"
+                        ? "mb-1 flex items-start justify-between gap-2 font-semibold text-[#D9C0A3]"
                         : "mb-1 flex items-start justify-between gap-2 font-bold text-[#607D8B]"
                     }
                   >
@@ -2701,7 +2701,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                         <span
                           className={
                             isLounge
-                              ? "block text-[9px] font-normal text-bsh-amber/85"
+                              ? "block text-[9px] font-normal text-[#BFA173]/75"
                               : "block text-[9px] font-normal opacity-65"
                           }
                         >
@@ -2712,7 +2712,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                     <div className="flex items-center gap-1">
                       <span
                         className={
-                          isLounge ? "text-[9px] font-normal text-bsh-gold/70" : "text-[9px] font-normal opacity-75"
+                          isLounge ? "text-[9px] font-normal text-[#BFA173]/55" : "text-[9px] font-normal opacity-75"
                         }
                       >
                         ID:{thread.anonId ?? "GUEST00"}
@@ -2734,7 +2734,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   <p
                     className={
                       isLounge
-                        ? "text-[11px] leading-relaxed text-bsh-ivory/95"
+                        ? "text-[11px] leading-relaxed text-[#D9C0A3]/88"
                         : "text-[11px] leading-snug text-[#4A4A4A]"
                     }
                   >
@@ -2742,7 +2742,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   </p>
                   <div
                     className={
-                      isLounge ? "mt-1.5 flex gap-3 text-bsh-ivory/80" : "mt-1.5 flex gap-3 text-[#D4A373]"
+                      isLounge ? "mt-1.5 flex gap-3 text-[#D9C0A3]/70" : "mt-1.5 flex gap-3 text-[#D4A373]"
                     }
                   >
                     <button
@@ -2961,7 +2961,7 @@ export function BshRetroApp({ variant = "classic" }: { variant?: "classic" | "lo
                   key={post.id}
                   className={
                     isLounge
-                      ? `bsh-lounge-card bsh-lounge-card-surface rounded-xl p-1 shadow-[0_14px_30px_-12px_rgba(90,20,30,0.5)] ${idx % 2 === 0 ? "-rotate-[0.5deg]" : "rotate-[0.5deg]"}`
+                      ? `bsh-lounge-card bsh-lounge-card-surface rounded-xl p-1 shadow-[0_18px_40px_-10px_rgba(58,3,21,0.6),0_8px_18px_-6px_rgba(0,0,0,0.55)] ${idx % 2 === 0 ? "-rotate-[0.5deg]" : "rotate-[0.5deg]"}`
                       : `rounded-[14px] border border-[#4A4A4A] bg-[#EADBC8] p-1.5 shadow-[5px_5px_0_0_rgba(74,74,74,0.35)] ${
                           idx % 2 === 0 ? "-rotate-[0.8deg]" : "rotate-[0.8deg]"
                         }`
